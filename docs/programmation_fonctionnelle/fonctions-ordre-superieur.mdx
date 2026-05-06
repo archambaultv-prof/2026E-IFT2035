@@ -1,0 +1,253 @@
+---
+sidebar_position: 10
+sidebar_label: Fonctions d'ordre supérieur
+description: Fonctions comme valeurs, curryfication, map, filter et fold.
+---
+
+# Fonctions d'ordre supérieur
+
+## Les fonctions comme valeurs
+
+En programmation fonctionnelle, les fonctions sont des valeurs de
+**première classe** (*first-class citizens*) : on peut les passer en argument,
+les retourner comme résultat, et les stocker dans des structures de données.
+
+Une **fonction d'ordre supérieur** (*higher-order function*) est une fonction
+qui :
+- prend une ou plusieurs **fonctions comme arguments**, ou
+- retourne une **fonction comme résultat**.
+
+Ce concept est l'équivalent fonctionnel des boucles et des abstractions de
+contrôle en programmation impérative.
+
+## Fonctions anonymes — les lambdas
+
+Parfois on veut passer une fonction simple sans lui donner de nom. On utilise
+une **expression lambda** :
+
+```haskell
+-- Syntaxe : \param1 param2 -> corps
+\x -> x * 2          -- fonction qui double
+\x y -> x + y        -- addition
+\x -> x > 0          -- test de positivité
+```
+
+:::tip[Syntaxe Haskell — lambda]
+Le `\` ressemble à la lettre grecque λ (lambda), d'où le nom. En mathématiques,
+$\lambda x.\, x^2$ désigne la fonction qui associe $x^2$ à $x$.
+```haskell
+\x -> x * x    -- équivalent à carre x = x * x, mais anonyme
+```
+:::
+
+```haskell
+ghci> (\x -> x * 2) 5
+10
+ghci> (\x y -> x + y) 3 4
+7
+```
+
+## `map` — appliquer une fonction à chaque élément
+
+`map f liste` applique la fonction `f` à **chaque élément** de la liste et
+retourne la liste des résultats.
+
+```math
+\text{map}(f, [x_1, x_2, \ldots, x_n]) = [f(x_1), f(x_2), \ldots, f(x_n)]
+```
+
+```haskell
+map :: (a -> b) -> [a] -> [b]
+```
+
+```haskell
+ghci> map (\x -> x * 2) [1, 2, 3, 4, 5]
+[2, 4, 6, 8, 10]
+
+ghci> map (\x -> x * x) [1, 2, 3, 4, 5]
+[1, 4, 9, 16, 25]
+
+ghci> map not [True, False, True]
+[False, True, False]
+
+ghci> map length ["abc", "de", "fghi"]
+[3, 2, 4]
+```
+
+En Python :
+```python
+list(map(lambda x: x * 2, [1, 2, 3, 4, 5]))  # → [2, 4, 6, 8, 10]
+```
+
+L'implémentation de `map` par récursion montre bien son fonctionnement :
+
+```haskell
+-- Implémentation manuelle de map
+monMap :: (a -> b) -> [a] -> [b]
+monMap _ []       = []
+monMap f (x : xs) = f x : monMap f xs
+```
+
+## `filter` — sélectionner des éléments
+
+`filter p liste` retourne la sous-liste des éléments qui satisfont le
+**prédicat** `p` (une fonction qui retourne un `Bool`).
+
+```haskell
+filter :: (a -> Bool) -> [a] -> [a]
+```
+
+```haskell
+ghci> filter (\x -> x > 3) [1, 2, 3, 4, 5, 6]
+[4, 5, 6]
+
+ghci> filter even [1, 2, 3, 4, 5, 6, 7, 8]
+[2, 4, 6, 8]
+
+ghci> filter (\s -> length s > 3) ["ab", "abcd", "x", "haskell"]
+["abcd", "haskell"]
+```
+
+```haskell
+-- Implémentation manuelle
+monFilter :: (a -> Bool) -> [a] -> [a]
+monFilter _ []       = []
+monFilter p (x : xs)
+  | p x       = x : monFilter p xs
+  | otherwise  = monFilter p xs
+```
+
+## `foldr` — réduire une liste
+
+`foldr` (*fold right*) est la fonction d'ordre supérieur la plus générale sur
+les listes. Elle remplace chaque cons (`:`) par une fonction `f`, et la liste
+vide `[]` par une valeur initiale `z` :
+
+```math
+\text{foldr}(f, z, [x_1, x_2, x_3]) = f(x_1, f(x_2, f(x_3, z)))
+```
+
+```haskell
+foldr :: (a -> b -> b) -> b -> [a] -> b
+```
+
+```haskell
+ghci> foldr (+) 0 [1, 2, 3, 4, 5]    -- somme
+15
+ghci> foldr (*) 1 [1, 2, 3, 4, 5]    -- produit (= 5!)
+120
+ghci> foldr (:) [] [1, 2, 3]          -- copie de liste
+[1, 2, 3]
+ghci> foldr (\x acc -> x > 3 || acc) False [1, 2, 5, 0]
+True
+```
+
+En fait, `map` et `filter` peuvent être définis avec `foldr` :
+
+```haskell
+mapAvecFold :: (a -> b) -> [a] -> [b]
+mapAvecFold f = foldr (\x acc -> f x : acc) []
+
+filterAvecFold :: (a -> Bool) -> [a] -> [a]
+filterAvecFold p = foldr (\x acc -> if p x then x : acc else acc) []
+```
+
+## La curryfication
+
+En Haskell, toutes les fonctions sont **currifiées** par défaut : une fonction
+de $n$ arguments est en réalité une fonction qui prend **un seul argument** et
+retourne une fonction qui attend le reste.
+
+```haskell
+addition :: Int -> Int -> Int
+addition x y = x + y
+
+-- C'est en réalité :
+-- addition :: Int -> (Int -> Int)
+-- addition x = \y -> x + y
+```
+
+Cela permet l'**application partielle** : fournir seulement une partie des
+arguments produit une nouvelle fonction.
+
+```haskell
+ajouter5 :: Int -> Int
+ajouter5 = addition 5   -- application partielle : addition reçoit seulement 5
+
+ghci> ajouter5 3
+8
+ghci> ajouter5 10
+15
+```
+
+:::info[Exemple]
+L'application partielle avec `map` :
+
+```haskell
+doubler :: [Int] -> [Int]
+doubler = map (* 2)    -- (* 2) est une section : \x -> x * 2
+
+tripler :: [Int] -> [Int]
+tripler = map (* 3)
+
+ghci> doubler [1, 2, 3]
+[2, 4, 6]
+ghci> tripler [1, 2, 3]
+[3, 6, 9]
+```
+
+`(* 2)` est une **section d'opérateur** : une application partielle d'un
+opérateur infixe. On peut aussi écrire `(2 *)` ou `(+1)`, etc.
+:::
+
+## Composition de fonctions
+
+L'opérateur `.` compose deux fonctions, comme la composition mathématique
+$(g \circ f)(x) = g(f(x))$ :
+
+```haskell
+(.) :: (b -> c) -> (a -> b) -> (a -> c)
+(f . g) x = f (g x)
+```
+
+```haskell
+ghci> ((*2) . (+1)) 3     -- d'abord +1, puis *2 : (3+1)*2 = 8
+8
+
+-- Transformer et sélectionner en une seule fonction
+carresPositifs :: [Int] -> [Int]
+carresPositifs = filter (> 0) . map (\x -> x * x - 10)
+
+ghci> carresPositifs [-3, -1, 0, 4, 5]
+[6, 15]
+```
+
+L'opérateur `$` applique une fonction à un argument, mais avec la **priorité la
+plus basse**. Il évite les parenthèses :
+
+```haskell
+-- Sans $ :
+print (filter even (map (*2) [1..10]))
+
+-- Avec $ :
+print $ filter even $ map (*2) [1..10]
+```
+
+## Récapitulatif
+
+| Fonction | Type (simplifié) | Description |
+|---|---|---|
+| `map f xs` | `(a→b) → [a] → [b]` | Applique `f` à chaque élément |
+| `filter p xs` | `(a→Bool) → [a] → [a]` | Garde les éléments satisfaisant `p` |
+| `foldr f z xs` | `(a→b→b) → b → [a] → b` | Réduit de droite à gauche |
+| `foldl f z xs` | `(b→a→b) → b → [a] → b` | Réduit de gauche à droite |
+| `(f . g) x` | `(b→c) → (a→b) → a → c` | Composition : `f(g(x))` |
+
+```haskell
+-- Exemple complet : somme des carrés des nombres pairs de 1 à 100
+résultat :: Int
+résultat = foldr (+) 0 . map (^2) . filter even $ [1..100]
+
+ghci> résultat
+171700
+```

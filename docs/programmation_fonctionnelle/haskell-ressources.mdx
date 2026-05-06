@@ -1,0 +1,143 @@
+---
+sidebar_position: 2
+sidebar_label: Haskell
+description: Installation de Haskell, utilisation de GHCi et premières expressions.
+---
+
+# Haskell
+
+## Qu'est-ce que Haskell ?
+
+Haskell est un langage de programmation fonctionnel **pur** et **statiquement
+typé**, créé en 1990 par un comité académique dans le but de consolider les
+recherches sur les langages fonctionnels paresseux (Miranda, Hope, LazyML…).
+
+Ses caractéristiques principales :
+
+- **Pur** : toutes les fonctions sont mathématiquement pures — pas d'effets de bord cachés.
+- **Paresseux** (*lazy*) : les expressions ne sont évaluées que lorsqu'on en a besoin.
+- **Fortement typé** : chaque expression a un type, vérifié à la compilation.
+- **Inférence de types** : le compilateur déduit les types automatiquement — vous n'avez presque jamais besoin de les écrire explicitement.
+
+:::tip[Devise de Haskell]
+*"Avoid success at all costs"* — Simon Peyton Jones.
+
+Un clin d'œil au fait que Haskell a délibérément choisi la pureté et la rigueur
+plutôt que la popularité facile. Paradoxalement, ces choix ont inspiré des
+dizaines d'autres langages (Scala, Rust, Swift, Kotlin…).
+:::
+
+## Accéder à Haskell
+
+### Option 1 : en ligne
+
+Le moyen le plus rapide est d'utiliser un interpréteur en ligne comme **[Haskell Playground](https://play.haskell.org/)** .
+
+### Option 2 : installation locale
+
+Pour installer Haskell sur votre machine, utilisez
+[**GHCup**](https://www.haskell.org/ghcup/). GHCup installe GHC (le
+compilateur) et GHCi (l'interpréteur interactif).
+
+## GHCi — l'interpréteur interactif
+
+GHCi (Glasgow Haskell Compiler interactive) est un REPL (*Read-Eval-Print
+Loop*) : vous tapez une expression, Haskell l'évalue et affiche le résultat.
+C'est l'outil idéal pour explorer le langage.
+
+```
+$ ghci
+GHCi, version 9.8.2: https://www.haskell.org/ghc/  :? for help
+ghci>
+```
+
+### Premières expressions
+
+```haskell
+ghci> 1 + 2
+3
+
+ghci> 10 * 5 - 3
+47
+
+ghci> sqrt 2
+1.4142135623730951
+
+ghci> "Bonjour" ++ " monde"
+"Bonjour monde"
+
+ghci> length [1, 2, 3, 4, 5]
+5
+```
+
+Notez que l'appel de fonction s'écrit **sans parenthèses** : `sqrt 2` et non
+`sqrt(2)`. Les parenthèses servent uniquement au groupement.
+
+### Définir une fonction
+
+```haskell
+ghci> double x = x * 2
+ghci> double 5
+10
+ghci> double 3.14
+6.28
+```
+
+### Commandes utiles de GHCi
+
+| Commande | Description |
+|---|---|
+| `:type expr` | Affiche le type d'une expression |
+| `:info nom` | Informations sur une fonction ou un type |
+| `:load fichier.hs` | Charge un fichier Haskell |
+| `:reload` | Recharge le fichier courant |
+| `:quit` | Quitte GHCi |
+
+```haskell
+ghci> :type sqrt
+sqrt :: Floating a => a -> a
+
+ghci> :type length
+length :: [a] -> Int
+```
+
+Ne vous inquiétez pas de la syntaxe des types pour l'instant — nous y
+reviendrons dans la section [Types](types).
+
+## Travailler avec des fichiers `.hs`
+
+Pour des programmes plus longs, on écrit le code dans un fichier `.hs` :
+
+```haskell title="bonjour.hs"
+-- Ceci est un commentaire
+module Main where
+
+-- Une définition de fonction
+carre :: Int -> Int
+carre x = x * x
+
+-- La fonction principale
+main :: IO ()
+main = print (carre 7)
+```
+
+Puis on charge et exécute dans GHCi :
+
+```
+ghci> :load bonjour.hs
+[1 of 1] Compiling Main ( bonjour.hs, interpreted )
+Ok, one module loaded.
+ghci> carre 7
+49
+ghci> main
+49
+```
+
+## Ressources pour apprendre Haskell
+
+- **[Learn You a Haskell](https://learnyouahaskell.github.io/introduction.html)** — tutoriel illustré,
+  gratuit en ligne. Excellent point de départ.
+- **[Hoogle](https://hoogle.haskell.org/)** — moteur de recherche pour les
+  fonctions Haskell. Vous pouvez chercher par nom *ou par type de signature*.
+- **[Hackage](https://hackage.haskell.org/)** — dépôt de bibliothèques Haskell.
+

@@ -1,0 +1,113 @@
+---
+sidebar_position: 1
+sidebar_label: Introduction
+description: De la pensée mathématique à la programmation fonctionnelle.
+---
+
+# Programmation fonctionnelle
+
+## Les boucles n'existent pas en mathématiques
+
+Vous avez suivi des cours de mathématiques depuis des années. Vous connaissez
+les intégrales, les suites, les séries. Maintenant, posez-vous une question :
+**quand avez-vous vu une boucle dans un manuel de mathématiques ?**
+
+Jamais.
+
+Pourtant, les concepts que vous manipulez impliquent conceptuellement de
+répéter des opérations un grand nombre de fois.
+
+La somme des $n$ premiers entiers :
+
+```math
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+```
+
+L'intégrale définie — conceptuellement une somme infinie de petits rectangles :
+
+```math
+\int_a^b f(x) \, dx = \lim_{n \to \infty} \sum_{i=1}^{n} f\!\left(a + i \cdot \frac{b-a}{n}\right) \cdot \frac{b-a}{n}
+```
+
+La factorielle :
+
+```math
+n! = n \times (n-1) \times \cdots \times 2 \times 1
+```
+
+Aucune de ces définitions utilise explicitement une boucle `for` ou `while`.
+
+:::info[Question ?]
+
+S'il est possible de définir des intégrales sans boucles explicites,
+est-il possible de programmer sans boucles explicites ?
+
+:::
+
+## Les variables ne changent pas en mathématiques
+
+En mathématiques, quand vous écrivez $x = 2$, cette égalité est vraie pour
+toujours. Il n'existe pas d'instruction $x \leftarrow x + 1$ qui ferait que
+$x$ vaut d'abord 2, puis 3, puis 4. Une variable mathématique désigne une
+valeur fixe, pas un emplacement mémoire modifiable.
+
+De plus, une fonction mathématique comme $f(x) = x^2$ retourne **toujours** le
+même résultat pour un même argument. Appeler $f(3)$ produira toujours $9$, peu
+importe ce qui s'est passé avant. C'est ce qu'on appelle la **transparence
+référentielle**.
+
+:::info[Question ?]
+
+S'il est possible de faire des mathématiques sans variables mutables, est-il
+possible de programmer sans variables mutables ?
+
+:::
+
+## La programmation fonctionnelle
+
+La **programmation fonctionnelle** est un paradigme de programmation qui adopte
+cette philosophie mathématique :
+
+- Les programmes sont construits en **composant des fonctions**.
+- Les données sont **immuables** : on ne modifie pas une valeur, on en crée une nouvelle.
+- Il n'y a pas d'état global mutable, pas d'effets de bord cachés.
+- Une fonction retourne toujours le même résultat pour les mêmes arguments.
+
+Ces propriétés rendent les programmes plus faciles à raisonner, à tester, et à
+paralléliser.
+
+:::info[Paradigmes de programmation]
+Un **paradigme** est une façon d'organiser et de structurer un programme. Les
+plus courants sont :
+- **Impératif** : on décrit comment faire (C, Python, Java en partie).
+- **Orienté objet** : on organise le code en objets avec état et méthodes (Java, Python).
+- **Fonctionnel** : on exprime des transformations de données via des fonctions (Haskell, OCaml, Erlang).
+
+Beaucoup de langages modernes (Python, JavaScript, Scala, Kotlin, Rust) mélangent
+plusieurs paradigmes.
+:::
+
+## Haskell
+
+Dans ce chapitre, nous utilisons **Haskell** comme langage principal. Haskell
+est un langage fonctionnel *pur* : toutes les fonctions sont mathématiquement
+pures, l'immuabilité est la règle, et les effets de bord sont gérés
+explicitement par le système de types. Cela en fait le langage idéal pour
+apprendre la programmation fonctionnelle dans sa forme la plus nette.
+
+Haskell est aussi utilisé en industrie : Jane Street, Meta, Microsoft, et de
+nombreuses banques et firmes de trading l'emploient pour des systèmes
+critiques.
+
+## Plan du chapitre
+
+- [Haskell : premiers pas](haskell-ressources) — installation, GHCi, premières expressions.
+- [Expressions et valeurs](expressions-valeurs) — tout est une expression ; une valeur est un résultat irréductible.
+- [Types](types) — le système de types de Haskell, l'inférence, les types polymorphes.
+- [Types algébriques](types-algebriques) — déclarer des types avec `data`, constructeurs, `Maybe`.
+- [Filtrage par motif](filtrage) — définir des fonctions par cas, les listes.
+- [Polymorphisme et classes de types](types2) — polymorphisme paramétrique et classes de types.
+- [Récursion](recursion) — remplacer les boucles par la récursion et l'induction.
+- [Ordre d'évaluation](ordre-evaluation) — évaluation paresseuse et transparence référentielle.
+- [Fonctions d'ordre supérieur](fonctions-ordre-superieur) — `map`, `filter`, `fold`, curryfication.
+- [Portée et fermetures](portee-fermetures) — portée lexicale, variables libres, fermetures.

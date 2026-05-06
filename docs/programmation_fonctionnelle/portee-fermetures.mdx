@@ -1,0 +1,214 @@
+---
+sidebar_position: 11
+sidebar_label: Portée et fermetures
+description: Portée lexicale, variables libres et liées, fermetures en Haskell.
+---
+
+# Portée et fermetures
+
+## La portée d'une variable
+
+La **portée** (*scope*) d'un nom est la région du programme où ce nom est
+accessible. Comprendre la portée est essentiel pour savoir quelle valeur un
+nom désigne à un endroit donné du code.
+
+```haskell
+x = 10          -- x global vaut 10
+
+f y = x + y     -- x ici désigne le x global = 10
+
+g x = x * 2     -- ce x est le paramètre de g, pas le x global
+                -- à l'intérieur de g, x désigne l'argument passé
+```
+
+```haskell
+ghci> f 5    -- 10 + 5
+15
+ghci> g 3    -- 3 * 2
+6
+ghci> g x    -- g 10 = 10 * 2
+20
+```
+
+## Portée statique vs portée dynamique
+
+Il existe deux façons d'interpréter la portée d'une variable :
+
+### Portée statique (lexicale)
+
+La valeur d'un nom est déterminée par sa position dans le **texte du programme**
+(*à la lecture du code*). C'est la portée de **Haskell**, Python, Java, OCaml et
+la plupart des langages modernes.
+
+```haskell
+zoom = 100
+
+afficherZoom = zoom     -- zoom est résolu au moment de la définition
+                        -- → afficherZoom = 100
+
+local = let zoom = 999 in afficherZoom
+-- Même si on crée un zoom local à 999, afficherZoom utilise
+-- toujours le zoom de sa définition = 100
+```
+
+```haskell
+ghci> local
+100
+```
+
+### Portée dynamique
+
+La valeur d'un nom est déterminée par l'environnement **au moment de
+l'exécution**. Certains langages anciens (Emacs Lisp, Shell bash pour les
+variables d'environnement) utilisent ce modèle.
+
+Avec portée dynamique, `local` ci-dessus retournerait `999` car `zoom = 999`
+est la définition active au moment de l'appel.
+
+:::note
+La portée dynamique est source de nombreux bogues subtils car le comportement
+d'une fonction dépend du contexte d'appel, ce qui viole la transparence
+référentielle. Les langages modernes préfèrent généralement la portée statique.
+:::
+
+## Variables libres et variables liées
+
+Dans une expression, une **variable liée** est un nom introduit localement
+(paramètre, `let`, `where`, pattern). Une **variable libre** est un nom
+qui vient de l'extérieur.
+
+```haskell
+-- Dans :  f x = x + y
+-- x est liée (paramètre de f)
+-- y est libre (doit être définie ailleurs)
+```
+
+```haskell
+y = 5
+
+f x = x + y    -- y est libre, sa valeur est celle de l'environnement
+
+ghci> f 3    -- 3 + 5
+8
+```
+
+:::info[Exemple]
+Dans l'expression $\sum_{i=1}^{n} i^2 + x$ :
+- $i$ est liée (variable de sommation — interne à la somme)
+- $n$ et $x$ sont libres (viennent du contexte)
+
+De même en Haskell :
+```haskell
+sommeCares n = foldr (\i acc -> i*i + acc) 0 [1..n]
+-- i est liée (paramètre du lambda)
+-- n est libre (paramètre de sommeCares)
+-- acc est liée (paramètre du lambda)
+```
+:::
+
+## Les fermetures
+
+Une **fermeture** (*closure*) est une fonction qui **capture** les variables
+libres de son environnement de définition.
+
+En Haskell, toute fonction lambda (ou toute fonction définie localement) qui
+utilise des variables de son contexte est une fermeture.
+
+```haskell
+-- fabriquerAdder retourne une fonction (fermeture)
+fabriquerAdder :: Int -> (Int -> Int)
+fabriquerAdder n = \x -> x + n
+--                       ^^^^
+--               fermeture : capture n de l'environnement
+
+ajouter10 :: Int -> Int
+ajouter10 = fabriquerAdder 10
+
+ajouter42 :: Int -> Int
+ajouter42 = fabriquerAdder 42
+```
+
+```haskell
+ghci> ajouter10 5
+15
+ghci> ajouter42 5
+47
+```
+
+`ajouter10` et `ajouter42` sont deux fermetures distinctes : chacune a capturé
+sa propre valeur de `n` au moment de leur création.
+
+:::info[Exemple]
+Créer une fonction de mise à l'échelle (*scaling*) :
+
+```haskell
+scalerListe :: Int -> [Int] -> [Int]
+scalerListe facteur = map (\x -> x * facteur)
+--                             ^^^^^^^^^^^^^^^^^^
+--               fermeture : capture `facteur`
+
+ghci> scalerListe 3 [1, 2, 3, 4]
+[3, 6, 9, 12]
+
+ghci> scalerListe 10 [1, 2, 3]
+[10, 20, 30]
+```
+:::
+
+## Les fermetures et la curryfication
+
+En Haskell, la curryfication et les fermetures sont intimement liées.
+L'application partielle crée implicitement une fermeture :
+
+```haskell
+addition :: Int -> Int -> Int
+addition x y = x + y
+
+-- addition 5 est une fermeture qui capture x = 5
+ajouter5 :: Int -> Int
+ajouter5 = addition 5    -- équivalent à \y -> 5 + y
+```
+
+La correspondance entre `addition 5` et `\y -> 5 + y` est une fermeture sur
+`x = 5`.
+
+## Portée des `let` et `where`
+
+Les noms définis dans `let` et `where` ont une portée **locale** :
+
+```haskell
+f x =
+  let a = x + 1
+      b = a * 2    -- a est visible ici
+  in  a + b        -- a et b sont visibles ici
+-- a et b ne sont pas visibles en dehors de f
+
+g x = résultat
+  where
+    résultat = intermédiaire * 2
+    intermédiaire = x + 10    -- les définitions where se voient entre elles
+```
+
+Les définitions `where` et `let` peuvent être **mutuellement récursives** — une
+définition peut référencer l'autre.
+
+## Ombrage de noms (*shadowing*)
+
+Un nom local peut **masquer** (*shadow*) un nom externe portant le même nom :
+
+```haskell
+valeur = 42
+
+f valeur = valeur + 1    -- ce `valeur` est le paramètre, pas le global
+```
+
+```haskell
+ghci> f 10    -- 10 + 1 (pas 42 + 1)
+11
+ghci> f valeur    -- f 42 = 42 + 1
+43
+```
+
+En Haskell (portée statique), le `valeur` dans le corps de `f` désigne
+**toujours** le paramètre, même si le global existe aussi. C'est prévisible et
+cohérent.

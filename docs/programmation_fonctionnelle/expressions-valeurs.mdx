@@ -1,0 +1,197 @@
+---
+sidebar_position: 3
+sidebar_label: Expressions et valeurs
+description: Tout est expression en Haskell. Valeurs, réduction et définitions.
+---
+
+# Expressions et valeurs
+
+## Tout est une expression
+
+En programmation impérative, on distingue les **instructions** (qui font
+quelque chose, comme `x = x + 1` ou `print("bonjour")`) des **expressions**
+(qui produisent une valeur, comme `x + 1` ou `len(s)`).
+
+En Haskell, **tout est une expression**. Il n'existe pas d'instruction au sens
+impératif. Chaque morceau de code produit une valeur.
+
+```haskell
+ghci> 2 + 3           -- expression arithmétique → 5
+5
+
+ghci> "Bonjour"       -- expression littérale → "Bonjour"
+"Bonjour"
+
+ghci> if True then 1 else 2   -- if est une expression → 1
+1
+```
+
+Notez que le `if` en Haskell est une **expression**, pas une instruction. Il
+doit toujours avoir une branche `else`, et les deux branches doivent retourner
+des valeurs du même type.
+
+## Les valeurs
+
+Une **valeur** est une expression qui ne peut plus être réduite — c'est son
+résultat final. On dit qu'une valeur est en **forme normale**.
+
+| Expression | Valeur (forme normale) |
+|---|---|
+| `2 + 3` | `5` |
+| `length [1, 2, 3]` | `3` |
+| `not False` | `True` |
+| `"Bon" ++ "jour"` | `"Bonjour"` |
+| `42` | `42` (déjà une valeur) |
+
+Le processus de passage d'une expression à sa valeur s'appelle la **réduction**
+(ou *évaluation*). Haskell réduit les expressions selon des règles bien définies,
+exactement comme on simplifie une expression mathématique.
+
+:::info[Exemple]
+L'évaluation de `(2 + 3) * (10 - 4)` se fait par étapes :
+
+```math
+(2 + 3) \times (10 - 4) \;\to\; 5 \times 6 \;\to\; 30
+```
+
+De même en Haskell :
+```haskell
+ghci> (2 + 3) * (10 - 4)
+30
+```
+:::
+
+## Définir des noms
+
+En Haskell, on associe des noms à des expressions avec `=`. Ces associations
+sont des **définitions**, pas des affectations : la valeur ne change jamais.
+
+```haskell
+pi = 3.14159
+rayon = 5
+aire = pi * rayon * rayon
+```
+
+:::caution[Pas de mutation]
+En Haskell, une fois qu'un nom est défini, sa valeur est fixe pour toujours
+dans ce contexte. Il est **impossible** d'écrire `rayon = rayon + 1`. Cela
+n'a pas de sens mathématiquement — et Haskell rejette cette idée au niveau du
+langage.
+:::
+
+## Définir des fonctions
+
+Une **fonction** est simplement un nom associé à une expression qui dépend d'un
+ou plusieurs **paramètres**.
+
+```haskell
+-- Syntaxe : nom param1 param2 ... = corps
+double x = x * 2
+
+carre x = x * x
+
+hypotenuse a b = sqrt (a * a + b * b)
+```
+
+L'appel d'une fonction s'écrit en juxtaposant le nom et les arguments, **sans
+parenthèses** (sauf pour grouper) :
+
+```haskell
+ghci> double 7
+14
+
+ghci> carre 4
+16
+
+ghci> hypotenuse 3 4
+5.0
+```
+
+:::tip[Syntaxe Haskell — application de fonction]
+En Haskell, l'application de fonction a la **priorité la plus haute** de toutes
+les opérations. Ainsi :
+
+```haskell
+double 3 + 1    -- signifie (double 3) + 1 = 7, pas double (3 + 1) = 8
+carre 2 + carre 3  -- (carre 2) + (carre 3) = 4 + 9 = 13
+```
+
+Pour passer une expression comme argument, il faut des parenthèses :
+```haskell
+double (3 + 1)  -- double 4 = 8
+```
+:::
+
+## Expressions conditionnelles
+
+Puisque `if` est une expression, on peut l'utiliser partout :
+
+```haskell
+valeurAbsolue x = if x >= 0 then x else -x
+
+maximum2 a b = if a >= b then a else b
+```
+
+```haskell
+ghci> valeurAbsolue (-5)
+5
+ghci> maximum2 3 7
+7
+```
+
+## `let` et `where` : nommer des sous-expressions
+
+Pour nommer des résultats intermédiaires, Haskell offre deux mécanismes :
+
+### `where`
+
+```haskell
+aireTriangle base hauteur = aire
+  where
+    aire = base * hauteur / 2
+```
+
+`where` déclare des noms locaux *après* l'expression principale. C'est
+souvent plus lisible car on voit d'abord le résultat, puis les détails.
+
+### `let ... in`
+
+```haskell
+aireTriangle base hauteur =
+  let aire = base * hauteur / 2
+  in  aire
+```
+
+`let ... in` déclare des noms locaux *avant* l'expression qui les utilise.
+Pratique dans GHCi et dans des expressions imbriquées.
+
+```haskell
+ghci> let x = 10; y = 20 in x + y
+30
+```
+
+:::info[Exemple]
+Calcul de la distance entre deux points $(x_1, y_1)$ et $(x_2, y_2)$ :
+
+```math
+d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
+```
+
+```haskell
+distance x1 y1 x2 y2 = sqrt (dx * dx + dy * dy)
+  where
+    dx = x2 - x1
+    dy = y2 - y1
+```
+:::
+
+## Les commentaires
+
+```haskell
+-- Commentaire sur une ligne
+
+{-
+   Commentaire
+   sur plusieurs lignes
+-}
+```

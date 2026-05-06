@@ -1,0 +1,70 @@
+---
+sidebar_position: 7
+sidebar_label: Polymorphisme et classes de types
+description: Polymorphisme paramétrique et classes de types en Haskell.
+---
+
+# Polymorphisme et classes de types
+
+## Polymorphisme
+
+Certaines fonctions fonctionnent pour **n'importe quel type**. En Haskell, cela
+s'exprime avec des **variables de type** (par convention : `a`, `b`, `c`…).
+
+```haskell
+-- Retourne le premier élément d'une liste
+-- (fonctionne pour [Int], [Bool], [String], etc.)
+premier :: [a] -> a
+premier (x : _) = x
+
+-- Retourne la longueur d'une liste
+longueur :: [a] -> Int
+longueur [] = 0
+longueur (_ : xs) = 1 + longueur xs
+```
+
+La signature `[a] -> a` se lit : « pour tout type `a`, cette fonction prend
+une liste de `a` et retourne un `a` ».
+
+Cette forme de polymorphisme s'appelle **polymorphisme paramétrique** (ou
+*generics* dans d'autres langages).
+
+## Classes de types
+
+Haskell dispose d'un système de **classes de types** (*type classes*) qui
+permettent de définir des comportements partagés entre plusieurs types. C'est
+similaire aux interfaces en Java.
+
+```haskell
+ghci> :type (+)
+(+) :: Num a => a -> a -> a
+```
+
+La contrainte `Num a =>` signifie : « `a` doit être un type numérique ». Les
+types `Int`, `Integer`, `Double` sont tous dans la classe `Num`.
+
+| Classe | Signification | Types membres typiques |
+|---|---|---|
+| `Num` | Nombres | `Int`, `Integer`, `Double` |
+| `Eq` | Comparaison par égalité (`==`, `/=`) | Presque tous |
+| `Ord` | Comparaison par ordre (`<`, `>`, …) | `Int`, `Char`, … |
+| `Show` | Peut être converti en `String` | Presque tous |
+| `Read` | Peut être parsé depuis une `String` | Presque tous |
+
+```haskell
+maximumDe :: Ord a => a -> a -> a
+maximumDe x y = if x >= y then x else y
+
+-- Fonctionne avec Int, Double, Char, String, etc.
+ghci> maximumDe 3 7
+7
+ghci> maximumDe 'a' 'z'
+'z'
+```
+
+:::note
+Les classes de types sont bien plus puissantes que les interfaces Java. Elles
+permettent notamment l'inférence automatique et l'implémentation *après coup*
+pour des types existants. Nous n'entrerons pas dans leurs détails avancés dans
+ce cours.
+:::

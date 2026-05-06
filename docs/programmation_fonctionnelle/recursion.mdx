@@ -1,0 +1,231 @@
+---
+sidebar_position: 8
+sidebar_label: Récursion
+description: Remplacer les boucles par la récursion. Lien avec l'induction mathématique.
+---
+
+# Récursion
+
+## Les boucles en programmation impérative
+
+En programmation impérative, les boucles servent à répéter une action un certain
+nombre de fois ou jusqu'à ce qu'une condition soit atteinte :
+
+```python
+# Calcul de la somme des n premiers entiers (Python)
+def somme(n):
+    total = 0
+    for i in range(1, n + 1):
+        total = total + i
+    return total
+```
+
+Ce code modifie l'état d'une variable (`total`, `i`). Haskell n'a pas de
+boucles et n'a pas de variables mutables. Comment fait-il alors ?
+
+## La récursion
+
+Une fonction est **récursive** si elle s'appelle elle-même dans sa définition.
+La récursion remplace les boucles en programmation fonctionnelle.
+
+### Analogie avec l'induction mathématique
+
+En mathématiques, on définit des suites et des fonctions par **récurrence** :
+
+```math
+\text{somme}(n) = \begin{cases}
+0 & \text{si } n = 0 \\
+n + \text{somme}(n-1) & \text{sinon}
+\end{cases}
+```
+
+La définition est **circulaire** : `somme` est définie en termes de `somme`.
+Mais elle est bien fondée parce que :
+1. Il existe un **cas de base** ($n = 0$) qui ne fait pas d'appel récursif.
+2. Le **cas récursif** réduit le problème ($n-1 < n$), donc on finit toujours
+   par atteindre le cas de base.
+
+En Haskell, cette définition s'écrit directement :
+
+```haskell
+somme :: Int -> Int
+somme 0 = 0
+somme n = n + somme (n - 1)
+```
+
+:::info[Exemple]
+Trace de l'évaluation de `somme 4` :
+
+```math
+\text{somme}(4) \to 4 + \text{somme}(3) \to 4 + 3 + \text{somme}(2) \to \cdots \to 4 + 3 + 2 + 1 + 0 = 10
+```
+
+```haskell
+ghci> somme 4
+10
+```
+:::
+
+## Factorielle
+
+La factorielle est l'exemple classique de récursion :
+
+```math
+n! = \begin{cases}
+1 & \text{si } n = 0 \\
+n \times (n-1)! & \text{sinon}
+\end{cases}
+```
+
+```haskell
+factorielle :: Integer -> Integer
+factorielle 0 = 1
+factorielle n = n * factorielle (n - 1)
+```
+
+```haskell
+ghci> factorielle 5
+120
+ghci> factorielle 10
+3628800
+ghci> factorielle 50   -- Integer supporte les grands nombres
+30414093201713378043612608166979581188299763898377856
+```
+
+:::tip[Utiliser `Integer` vs `Int`]
+`Int` est un entier machine (64 bits, max ≈ 9.2 × 10¹⁸). `Integer` est un
+entier en précision arbitraire (pas de limite), mais plus lent. Pour les
+calculs récursifs qui peuvent produire de très grands résultats, `Integer` est
+plus sûr.
+:::
+
+## Récursion sur les listes
+
+La récursion sur les listes suit le même patron : cas de base sur la liste
+vide `[]`, et cas récursif sur `(x : xs)`.
+
+### Longueur d'une liste
+
+```haskell
+longueur :: [a] -> Int
+longueur []       = 0
+longueur (_ : xs) = 1 + longueur xs
+```
+
+```math
+\text{longueur}([1,2,3]) \to 1 + \text{longueur}([2,3]) \to 1 + 1 + \text{longueur}([3]) \to 1 + 1 + 1 + 0 = 3
+```
+
+### Somme des éléments
+
+```haskell
+sommeListе :: [Int] -> Int
+sommeListе []       = 0
+sommeListе (x : xs) = x + sommeListе xs
+```
+
+### Appartenance à une liste
+
+```haskell
+-- Est-ce que l'élément e est dans la liste ?
+appartient :: Eq a => a -> [a] -> Bool
+appartient _ []       = False
+appartient e (x : xs) = e == x || appartient e xs
+```
+
+```haskell
+ghci> appartient 3 [1, 2, 3, 4]
+True
+ghci> appartient 7 [1, 2, 3, 4]
+False
+```
+
+### Concaténation de listes
+
+```haskell
+concatener :: [a] -> [a] -> [a]
+concatener []       ys = ys
+concatener (x : xs) ys = x : concatener xs ys
+```
+
+```haskell
+ghci> concatener [1, 2] [3, 4, 5]
+[1, 2, 3, 4, 5]
+```
+
+## Récursion multiple
+
+Certaines fonctions font **plusieurs appels récursifs**. L'exemple classique
+est Fibonacci :
+
+```math
+F(n) = \begin{cases}
+0 & \text{si } n = 0 \\
+1 & \text{si } n = 1 \\
+F(n-1) + F(n-2) & \text{sinon}
+\end{cases}
+```
+
+```haskell
+fib :: Int -> Int
+fib 0 = 0
+fib 1 = 1
+fib n = fib (n - 1) + fib (n - 2)
+```
+
+```haskell
+ghci> fib 10
+55
+ghci> map fib [0..10]
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+```
+
+:::caution[Complexité exponentielle]
+Cette implémentation naïve de Fibonacci est **très lente** : elle recalcule les
+mêmes valeurs un nombre exponentiel de fois. `fib 40` peut prendre plusieurs
+secondes. Des techniques comme la mémoïsation ou la récursion terminale règlent
+ce problème, mais elles dépassent le cadre de cette introduction.
+:::
+
+## La récursion terminale (*tail recursion*)
+
+Un appel récursif est **terminal** (*tail call*) quand il est la **dernière**
+opération de la fonction — son résultat est immédiatement retourné sans
+traitement supplémentaire.
+
+```haskell
+-- Récursion NON terminale (il faut attendre la récursion pour faire + n)
+somme n = n + somme (n - 1)
+
+-- Récursion TERMINALE (accumulateur)
+sommeAcc :: Int -> Int -> Int
+sommeAcc 0 acc = acc
+sommeAcc n acc = sommeAcc (n - 1) (acc + n)
+
+somme' :: Int -> Int
+somme' n = sommeAcc n 0
+```
+
+La récursion terminale permet au compilateur de l'optimiser en une boucle
+interne efficace (pas de dépassement de pile pour de grandes entrées).
+
+## Récursion vs boucles — comparaison
+
+```python
+# Python impératif
+def puissance(base, exp):
+    résultat = 1
+    for _ in range(exp):
+        résultat *= base
+    return résultat
+```
+
+```haskell
+-- Haskell fonctionnel
+puissance :: Int -> Int -> Int
+puissance _    0   = 1
+puissance base exp = base * puissance base (exp - 1)
+```
+
+Les deux calculent $\text{base}^{\text{exp}}$. La version Haskell suit
+directement la définition mathématique $b^n = b \times b^{n-1}$.

@@ -1,0 +1,210 @@
+---
+sidebar_position: 6
+sidebar_label: Filtrage par motif
+description: Définir des fonctions par cas avec le filtrage par motif en Haskell.
+---
+
+# Filtrage par motif
+
+## Définir des fonctions par cas
+
+En mathématiques, on définit souvent des fonctions par **cas** :
+
+```math
+|x| = \begin{cases} x & \text{si } x \geq 0 \\ -x & \text{sinon} \end{cases}
+```
+
+```math
+F(n) = \begin{cases} 0 & \text{si } n = 0 \\ 1 & \text{si } n = 1 \\ F(n-1) + F(n-2) & \text{sinon} \end{cases}
+```
+
+Haskell permet d'écrire exactement ce style avec le **filtrage par motif**
+(*pattern matching*) : on écrit plusieurs équations pour une même fonction,
+chacune couvrant un cas particulier.
+
+```haskell
+-- Nombre de jours dans un mois (sans années bissextiles)
+joursParMois :: Int -> Int
+joursParMois 2  = 28
+joursParMois 4  = 30
+joursParMois 6  = 30
+joursParMois 9  = 30
+joursParMois 11 = 30
+joursParMois _  = 31
+```
+
+Haskell essaie les équations dans l'ordre, de haut en bas, et utilise la
+première qui correspond. Le motif `_` est un **joker** : il correspond à
+n'importe quelle valeur et l'ignore — ici, tous les mois qui ne sont pas
+listés ont 31 jours.
+
+## Filtrage sur les constructeurs
+
+Le filtrage par motif examine la **structure** d'une valeur : quel constructeur
+a été utilisé, et quels sont ses arguments.
+
+### Sur `Bool`
+
+```haskell
+-- Négation logique
+non :: Bool -> Bool
+non True  = False
+non False = True
+
+-- ET logique
+et :: Bool -> Bool -> Bool
+et True  True  = True
+et _     _     = False
+```
+
+### Sur un type personnalisé
+
+```haskell
+-- Est-ce un jour de fin de semaine ?
+estWeekend :: Jour -> Bool
+estWeekend Samedi   = True
+estWeekend Dimanche = True
+estWeekend _        = False
+
+-- Aire d'une forme
+aire :: Forme -> Double
+aire (Cercle r)      = pi * r * r
+aire (Rectangle l h) = l * h
+```
+
+```haskell
+ghci> estWeekend Lundi
+False
+ghci> estWeekend Samedi
+True
+ghci> aire (Cercle 3.0)
+28.274333882308138
+ghci> aire (Rectangle 4.0 5.0)
+20.0
+```
+
+Notez que le filtrage **déstructure** le constructeur : `(Cercle r)` lie la
+variable `r` au rayon qui a été passé à `Cercle`.
+
+### Sur les listes
+
+En Haskell, une liste est soit :
+- La **liste vide** : `[]`
+- Un élément (la **tête**) suivi d'une liste (la **queue**) : `(x : xs)`
+
+:::tip[Syntaxe Haskell — listes]
+```haskell
+[]          -- liste vide
+[1, 2, 3]   -- sucre syntaxique pour 1 : 2 : 3 : []
+(x : xs)    -- tête x, queue xs
+(a : b : reste)  -- deux premiers éléments, puis le reste
+```
+
+La queue `xs` est elle-même une liste (éventuellement vide). Le nom `xs` est
+une convention : `x` pour un élément, `xs` pour une liste d'éléments.
+:::
+
+```haskell
+-- Premier élément d'une liste
+tete :: [a] -> a
+tete (x : _) = x
+
+-- Reste de la liste sans le premier élément
+queue :: [a] -> [a]
+queue (_ : xs) = xs
+
+-- Teste si une liste est vide
+estVide :: [a] -> Bool
+estVide []      = True
+estVide (_ : _) = False
+```
+
+```haskell
+ghci> tete [1, 2, 3]
+1
+ghci> queue [1, 2, 3]
+[2, 3]
+ghci> estVide []
+True
+ghci> estVide [42]
+False
+```
+
+## Expressions `case`
+
+On peut aussi faire du filtrage par motif à l'intérieur d'une expression avec
+`case ... of` :
+
+```haskell
+description :: [a] -> String
+description liste = case liste of
+  []      -> "liste vide"
+  [_]     -> "un seul élément"
+  [_, _]  -> "deux éléments"
+  _       -> "trois éléments ou plus"
+```
+
+```haskell
+ghci> description []
+"liste vide"
+ghci> description [42]
+"un seul élément"
+ghci> description [1, 2, 3, 4]
+"trois éléments ou plus"
+```
+
+## Les gardes (*guards*)
+
+Quand les cas dépendent d'une **condition** plutôt que d'une structure, on
+utilise les **gardes** (`|`) :
+
+```haskell
+signe :: Int -> String
+signe n
+  | n > 0  = "positif"
+  | n < 0  = "négatif"
+  | otherwise = "zéro"
+```
+
+`otherwise` est simplement un alias de `True` — c'est le cas par défaut.
+
+Les gardes peuvent être combinés avec le filtrage par motif :
+
+```haskell
+classerListe :: [Int] -> String
+classerListe []     = "vide"
+classerListe [x]
+  | x > 0     = "singleton positif"
+  | otherwise  = "singleton non-positif"
+classerListe _      = "plusieurs éléments"
+```
+
+:::info[Exemple]
+Implémentation de la valeur absolue avec garde :
+
+```haskell
+valAbs :: Int -> Int
+valAbs x
+  | x >= 0    = x
+  | otherwise  = -x
+```
+:::
+
+## Motifs incomplets
+
+Si aucun motif ne correspond à la valeur fournie, Haskell lève une erreur à
+l'exécution. Le compilateur peut vous avertir de ce risque avec l'option
+`-Wincomplete-patterns`.
+
+```haskell
+-- Fonction partielle : plante si la liste est vide
+tete :: [a] -> a
+tete (x : _) = x
+-- aucun cas pour []
+
+ghci> tete []
+*** Exception: Non-exhaustive patterns in function tete
+```
+
+Il est bon style de toujours couvrir tous les cas, ou d'utiliser `Maybe` pour
+signaler l'absence de valeur.

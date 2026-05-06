@@ -1,0 +1,176 @@
+---
+sidebar_position: 9
+sidebar_label: Ordre d'évaluation
+description: Évaluation paresseuse, transparence référentielle et pureté en Haskell.
+---
+
+# Ordre d'évaluation
+
+## Deux stratégies d'évaluation
+
+Quand on appelle une fonction, **dans quel ordre** évalue-t-on les expressions ?
+Il existe deux grandes stratégies :
+
+### Appel par valeur (*call by value*)
+
+Les arguments sont **entièrement évalués avant** d'être passés à la fonction.
+C'est la stratégie de la plupart des langages (Python, Java, C, OCaml).
+
+```
+double (2 + 3)
+→ double 5       -- on évalue 2+3 d'abord
+→ 5 * 2
+→ 10
+```
+
+### Appel par nom (*call by name*)
+
+Les arguments sont passés à la fonction **sans être évalués**, et ne sont
+calculés que si et quand la fonction en a besoin.
+
+```
+double (2 + 3)
+→ (2 + 3) * 2    -- on substitue l'expression non évaluée
+→ 5 * 2
+→ 10
+```
+
+## L'évaluation paresseuse de Haskell
+
+Haskell utilise une variante de l'appel par nom appelée **évaluation paresseuse**
+(*lazy evaluation*) : une expression n'est calculée que lorsque sa valeur est
+réellement nécessaire, **et son résultat est mémorisé** pour ne pas être
+recalculé.
+
+:::info[Exemple]
+```haskell
+-- Ignorer le premier argument
+ignorer :: a -> b -> b
+ignorer _ y = y
+```
+
+Avec appel par valeur :
+```
+ignorer (error "boom") 42
+→ évalue error "boom" → plantage !
+```
+
+Avec évaluation paresseuse (Haskell) :
+```
+ignorer (error "boom") 42
+→ 42    -- l'argument n'est jamais évalué
+```
+:::
+
+### Listes infinies
+
+L'évaluation paresseuse permet de définir des **listes infinies** en Haskell :
+
+```haskell
+-- Liste infinie de 1
+uns :: [Int]
+uns = 1 : uns
+
+-- Suite des entiers naturels à partir de n
+naturels :: Int -> [Int]
+naturels n = n : naturels (n + 1)
+
+-- Sucre syntaxique Haskell pour les suites
+[1..]       -- 1, 2, 3, 4, ...
+[2, 4..]    -- 2, 4, 6, 8, ...
+```
+
+Ces listes sont infinies, mais Haskell ne les calcule pas entièrement — il ne
+produit les éléments que lorsqu'ils sont demandés.
+
+```haskell
+ghci> take 5 [1..]       -- prend les 5 premiers éléments
+[1, 2, 3, 4, 5]
+
+ghci> take 5 [2, 4..]
+[2, 4, 6, 8, 10]
+
+ghci> take 10 (naturels 0)
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+## La transparence référentielle
+
+Une expression est **référentiellement transparente** si on peut la remplacer
+par sa valeur partout dans le programme **sans changer le comportement**.
+
+En mathématiques, cela va de soi : si $f(3) = 9$, alors remplacer $f(3)$ par
+$9$ partout ne change rien.
+
+En Haskell, toutes les expressions sont référentiellement transparentes car les
+fonctions sont pures — elles n'ont pas d'effets de bord.
+
+:::info[Exemple]
+```haskell
+carre :: Int -> Int
+carre x = x * x
+
+résultat = carre 5 + carre 5
+-- Équivalent à :
+résultat = 25 + 25
+-- Ou encore :
+résultat = let y = carre 5 in y + y
+```
+
+Ces trois définitions sont **toutes équivalentes** en Haskell.
+:::
+
+En Python, la transparence référentielle **n'est pas garantie** :
+
+```python
+compteur = 0
+
+def incrémenter():
+    global compteur
+    compteur += 1
+    return compteur
+
+résultat = incrémenter() + incrémenter()
+# résultat = 1 + 2 = 3
+
+# Mais si on "remplace" chaque appel par sa valeur au moment de l'appel :
+résultat = 1 + 1  # FAUX ! ce n'est pas équivalent
+```
+
+La transparence référentielle est une conséquence directe de la **pureté** :
+une fonction pure n'a pas de mémoire, pas d'effets cachés, et retourne toujours
+le même résultat pour les mêmes arguments.
+
+## Pourquoi la pureté est puissante
+
+| Propriété | Bénéfice |
+|---|---|
+| Transparence référentielle | Le raisonnement équationnel fonctionne |
+| Pas d'effets de bord | Facile à tester (pas besoin de mock) |
+| Immuabilité | Pas de conditions de course (*race conditions*) |
+| Évaluation paresseuse | Listes infinies, évaluation à la demande |
+
+:::note[Ordre d'évaluation et résultat]
+Puisque toutes les fonctions Haskell sont pures, l'**ordre d'évaluation n'a
+aucune importance sur le résultat**. Évaluer `a + b` en évaluant `a` d'abord
+ou `b` d'abord donne toujours la même valeur. C'est le **théorème de Church-Rosser**.
+
+Cette propriété permet aussi à Haskell d'évaluer des sous-expressions en
+**parallèle** sans risque d'interférence.
+:::
+
+## Comparer l'ordre d'évaluation
+
+```haskell
+-- Avec appel par valeur : boucle infinie si x est infini
+-- Avec évaluation paresseuse : retourne 0 immédiatement
+zéro :: Int -> Int
+zéro _ = 0
+
+-- Haskell :
+ghci> zéro (sum [1..])   -- sum d'une liste infinie... mais jamais calculé !
+0
+```
+
+Cela illustre que l'évaluation paresseuse permet de travailler avec des
+structures conceptuellement infinies, tant qu'on n'en demande qu'une partie finie.

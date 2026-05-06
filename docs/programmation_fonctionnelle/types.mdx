@@ -1,0 +1,108 @@
+---
+sidebar_position: 4
+sidebar_label: Types
+description: Système de types de Haskell, inférence, types de base et polymorphisme.
+---
+
+# Types
+
+## Qu'est-ce qu'un type ?
+
+Un **type** est un ensemble de valeurs qui partagent des propriétés communes.
+Le type d'une expression indique quelle sorte de valeur elle représente et
+quelles opérations sont applicables.
+
+| Expression | Type | Valeurs possibles |
+|---|---|---|
+| `True` | `Bool` | `True`, `False` |
+| `42` | `Int` | −2³¹ … 2³¹−1 |
+| `3.14` | `Double` | flottants 64 bits |
+| `'a'` | `Char` | un caractère Unicode |
+| `"bonjour"` | `String` | séquence de `Char` |
+| `[1, 2, 3]` | `[Int]` | liste d'entiers |
+| `(a, b)` | Paire (tuple) | `(1, True)`, `('a', 3.0)` |
+
+## Typage statique vs dynamique
+
+Il existe deux grandes approches pour les types dans les langages de
+programmation :
+
+| Aspect | **Typage statique** | **Typage dynamique** |
+|---|---|---|
+| Vérification | À la **compilation** | À l'**exécution** |
+| Exemples | Haskell, Java, C, Rust | Python, JavaScript, Ruby |
+| Erreurs de type | Détectées avant de lancer le programme | Détectées pendant l'exécution |
+| Performances | Généralement plus rapide | Plus flexible |
+
+Haskell est **statiquement typé** : si votre programme compile, il ne lèvera
+pas d'erreur de type à l'exécution.
+
+:::info[Exemple]
+En Python (dynamique), ces appels sont acceptés sans erreur, même s'ils
+risquent de ne pas faire ce que vous voulez :
+```python
+def double(x):
+    return x * 2
+
+double("abc")  # → "abcabc" (répétition de chaîne — pas ce qu'on voulait !)
+double(True)   # → 2 (True est traité comme 1 — surprenant !)
+```
+
+Une erreur de type ne survient qu'à l'exécution, et seulement si le code
+problématique est effectivement atteint :
+```python
+double("abc") + 1  # → TypeError: can only concatenate str (not "int") to str
+```
+
+En Haskell (statique), `double :: Int -> Int` rend ces appels impossibles dès
+la compilation — avant même d'exécuter le programme.
+:::
+
+## L'inférence de types
+
+En Haskell, vous n'êtes généralement **pas obligé d'écrire les types**. Le
+compilateur les déduit automatiquement — c'est l'**inférence de types**.
+
+```haskell
+carre x = x * x
+-- Haskell déduit : carre :: Num a => a -> a
+
+longueur s = length s
+-- Haskell déduit : longueur :: [a] -> Int
+```
+
+Vous pouvez voir le type inféré avec `:type` dans GHCi :
+
+```haskell
+ghci> :type carre
+carre :: Num a => a -> a
+
+ghci> :type True
+True :: Bool
+
+ghci> :type [1, 2, 3]
+[1, 2, 3] :: Num a => [a]
+```
+
+## Annotations de type
+
+Même si elles sont optionnelles, il est **recommandé** d'écrire les annotations
+de type pour les définitions de niveau supérieur. Elles servent de documentation
+et permettent au compilateur de donner de meilleures erreurs.
+
+```haskell
+-- Signature de type : nom :: Type
+double :: Int -> Int
+double x = x * 2
+
+hypotenuse :: Double -> Double -> Double
+hypotenuse a b = sqrt (a * a + b * b)
+
+estPair :: Int -> Bool
+estPair n = n `mod` 2 == 0
+```
+
+La notation `A -> B` désigne le type d'une fonction qui prend un argument de
+type `A` et retourne une valeur de type `B`. Pour plusieurs arguments :
+`A -> B -> C` (une fonction qui prend un `A`, puis un `B`, et retourne un `C`).
+
