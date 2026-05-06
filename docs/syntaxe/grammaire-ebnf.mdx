@@ -1,7 +1,7 @@
 ---
 sidebar_position: 5
 sidebar_label: Grammaire EBNF
-description: La grammaire EBNF et ses extensions pratiques pour les répétitions et les éléments optionnels.
+description: Extensions EBNF — éléments optionnels, répétitions et groupements.
 ---
 
 # Grammaire EBNF
@@ -18,10 +18,9 @@ qui rendent les règles plus concises et plus lisibles.
 
 | Notation | Signification | Équivalent BNF |
 |---|---|---|
-| `A \| B` | Alternative : `A` ou `B` | `<x> ::= A \| B` |
 | `[ A ]` | Optionnel : zéro ou une occurrence de `A` | `<x> ::= A \| ε` |
 | `{ A }` | Répétition : zéro ou plusieurs occurrences de `A` | `<x> ::= A <x> \| ε` |
-| `( A B )` | Groupement | — |
+| `( A B )` | Groupement : traite plusieurs symboles comme une unité, pour y appliquer `\|`, `[ ]` ou `{ }`. Ex. : `{ ( + \| - ) <terme> }` | — |
 
 Le symbole `ε` (epsilon) représente la chaîne vide.
 
