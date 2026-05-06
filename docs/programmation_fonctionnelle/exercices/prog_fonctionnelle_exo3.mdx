@@ -1,0 +1,62 @@
+---
+sidebar_position: 4
+sidebar_label: "Ex. 3 — Évaluateur pour Exp"
+description: Implémenter un évaluateur pour un type de données algébrique Exp.
+---
+
+# Exercice 3 — Évaluateur pour `Exp`
+
+## Le type de données
+
+Considérons le type algébrique suivant pour représenter des expressions
+arithmétiques et booléennes :
+
+```haskell
+data Exp
+  = Lit  Int          -- littéral entier,  ex : Lit 42
+  | BLit Bool         -- littéral booléen, ex : BLit True
+  | Neg  Exp          -- négation unaire,  ex : Neg (Lit 3)  → -3
+  | Plus Exp Exp      -- addition,         ex : Plus (Lit 1) (Lit 2)
+  | Times Exp Exp     -- multiplication
+  | Gt   Exp Exp      -- plus grand que,   ex : Gt (Lit 5) (Lit 3) → True
+  | Not  Exp          -- négation logique, ex : Not (BLit True)
+  | If   Exp Exp Exp  -- conditionnel,     ex : If (BLit True) (Lit 1) (Lit 0)
+```
+
+Les valeurs produites par l'évaluateur sont :
+
+```haskell
+data Val
+  = VInt  Int
+  | VBool Bool
+  | TypeError String  -- erreur de type à l'exécution
+  deriving (Show)
+```
+
+## Questions
+
+1. **Écrire l'évaluateur.** Compléter la fonction `eval :: Exp -> Val` par
+   filtrage par motif.
+
+   ```haskell
+   eval :: Exp -> Val
+   eval (Lit n)        = VInt n
+   eval (BLit b)       = VBool b
+   eval (Neg e)        = undefined
+   eval (Plus e1 e2)   = undefined
+   eval (Times e1 e2)  = undefined
+   eval (Gt e1 e2)     = undefined
+   eval (Not e)        = undefined
+   eval (If cond t f)  = undefined
+   ```
+
+2. **Évaluer à la main** les expressions suivantes, puis vérifier avec votre
+   code :
+
+   1. `Plus (Lit 3) (Times (Lit 4) (Lit 5))`
+
+   2. `If (Gt (Lit 10) (Lit 5)) (Lit 1) (Lit 0)`
+
+   3. `Not (Gt (Lit 3) (Lit 3))`
+
+   4. `Plus (Lit 1) (BLit True)` — que se passe-t-il ?

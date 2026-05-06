@@ -1,0 +1,23 @@
+---
+sidebar_position: 5
+sidebar_label: "Ex. 4 - Si et seulement si"
+description: Ambiguïté de la grammaire if-then-else et comment la résoudre.
+---
+
+# Exercice 4 - Si et seulement si
+
+Voici une grammaire pour `if then else`. Les règles `<E>` et `<X>` représentent
+des expressions et autres règles de la grammaire dont il n'est pas important de
+spécifier.
+
+```
+<S> ::= <X>
+      | 'if' <E> 'then' <S>
+      | 'if' <E> 'then' <S> 'else' <S>
+```
+
+Cette grammaire est ambiguë.
+
+1. Donner un exemple d'ambiguïté.
+2. Donner la grammaire non ambiguë qui associe les `else` avec le `if` le plus
+   proche.

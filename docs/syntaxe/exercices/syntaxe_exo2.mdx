@@ -1,0 +1,18 @@
+---
+sidebar_position: 3
+sidebar_label: "Ex. 2 -Machine à pile"
+description: Illustrer l'évaluation postfixe à l'aide d'une machine à pile.
+---
+
+# Exercice 2 - Postfixe et machine à pile
+
+La notation postfixe s'évalue facilement à l'aide d'une pile. L'algorithme
+général est :
+
+1. Lire l'expression de gauche à droite.
+   1. S'il s'agit d'un nombre, l'empiler.
+   2. S'il s'agit d'un opérateur : dépiler les 2 valeurs sur le sommet de la
+      pile, calculer le résultat et l'empiler.
+2. Lorsque la lecture est terminée, le résultat est au sommet de la pile.
+
+Illustrer cet algorithme avec les expressions de l'[exercice 1](syntaxe_exo1.mdx).

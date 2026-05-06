@@ -1,0 +1,64 @@
+---
+sidebar_position: 5
+sidebar_label: "Ex. 4 — Trouver le type"
+description: Déterminer le type concret ou polymorphique d'expressions Haskell.
+---
+
+# Exercice 4 — Trouver le type d'expressions
+
+Pour chacune des expressions ci-dessous, donner le **type** tel que Haskell
+l'inférerait. Indiquer le type le plus général (polymorphique) quand c'est
+possible. Utiliser `:type` dans GHCi pour vérifier vos réponses.
+
+
+1. ```haskell
+   f x = x
+   ```
+
+2. ```haskell
+   g x y = x
+   ```
+
+3. ```haskell
+   h x y = y
+   ```
+
+4. ```haskell
+   appliquer f x = f x
+   ```
+
+5. ```haskell
+   composer f g x = f (g x)
+   ```
+
+6. ```haskell
+   dupliquer x = (x, x)
+   ```
+
+7. ```haskell
+   enListe x = [x]
+   ```
+
+8. ```haskell
+   swap (x, y) = (y, x)
+   ```
+
+9. ```haskell
+   appliquerPaire f (x, y) = (f x, f y)
+   ```
+
+10. ```haskell
+    applyTwice f x = f (f x)
+    ```
+
+11. ```haskell
+    k x y z = x z (y z)
+    ```
+
+12. ```haskell
+    on f g x y = f (g x) (g y)
+    ```
+
+13. ```haskell
+    fix f = let x = f x in x
+    ```

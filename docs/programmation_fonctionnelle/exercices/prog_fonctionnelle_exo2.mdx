@@ -1,0 +1,49 @@
+---
+sidebar_position: 3
+sidebar_label: "Ex. 2 — Quicksort"
+description: Implémenter le tri rapide de façon fonctionnelle en Haskell.
+---
+
+# Exercice 2 — Quicksort
+
+## L'algorithme
+
+Le **tri rapide** (*quicksort*) est un algorithme de tri par récursion :
+
+1. Si la liste est vide, elle est déjà triée.
+2. Sinon, choisir un **pivot** (ici, le premier élément).
+3. Partitionner le reste de la liste en deux sous-listes :
+   - les éléments **inférieurs ou égaux** au pivot,
+   - les éléments **strictement supérieurs** au pivot.
+4. Trier récursivement chaque sous-liste et les **concaténer**.
+
+
+## Questions
+
+1. Implémenter `quicksort` en Haskell pour des listes d'entiers.
+
+   ```haskell
+   quicksort :: [Int] -> [Int]
+   quicksort = undefined
+   ```
+
+   Exemple d'exécution :
+
+   ```haskell
+   ghci> quicksort [3, 1, 4, 1, 5, 9, 2, 6]
+   [1, 1, 2, 3, 4, 5, 6, 9]
+   ```
+
+2. La version ci-dessus trie en ordre croissant. Modifier `quicksort` pour
+   accepter une **fonction de comparaison** en argument, de façon à pouvoir
+   trier dans n'importe quel ordre.
+
+   ```haskell
+   quicksortPar :: (Int -> Int -> Bool) -> [Int] -> [Int]
+   quicksortPar = undefined
+   ```
+
+   ```haskell
+   ghci> quicksortPar (>) [3, 1, 4, 1, 5]
+   [5, 4, 3, 1, 1]
+   ```

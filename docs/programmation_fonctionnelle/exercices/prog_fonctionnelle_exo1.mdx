@@ -1,0 +1,124 @@
+---
+sidebar_position: 2
+sidebar_label: "Ex. 1 — Manipulation de listes"
+description: Écrire des fonctions récursives de base sur les listes en Haskell.
+---
+
+# Exercice 1 — Manipulation de listes
+
+Pour chacune des fonctions ci-dessous, donner une **définition récursive** en
+Haskell en utilisant le filtrage par motif. N'utilisez pas les fonctions de la
+bibliothèque standard (sauf indication contraire).
+
+## Partie A — Fonctions de base
+
+1. **`somme`** — calcule la somme des éléments d'une liste d'entiers.
+
+   ```haskell
+   somme :: [Int] -> Int
+   somme = undefined
+   ```
+
+   ```haskell
+   ghci> somme [1, 2, 3, 4, 5]
+   15
+   ghci> somme []
+   0
+   ```
+
+2. **`produit`** — calcule le produit des éléments d'une liste d'entiers.
+
+   ```haskell
+   produit :: [Int] -> Int
+   produit = undefined
+   ```
+
+3. **`longueur`** — retourne le nombre d'éléments d'une liste d'entiers.
+
+   ```haskell
+   longueur :: [Int] -> Int
+   longueur = undefined
+   ```
+
+   ```haskell
+   ghci> longueur [10, 20, 30]
+   3
+   ghci> longueur "bonjour"
+   7
+   ```
+
+4. **`inverser`** — retourne la liste en ordre inverse.
+
+   ```haskell
+   inverser :: [a] -> [a]
+   inverser = undefined
+   ```
+
+   ```haskell
+   ghci> inverser [1, 2, 3]
+   [3, 2, 1]
+   ghci> inverser []
+   []
+   ```
+
+5. **`maxi`** — retourne le maximum d'une liste non vide d'entiers.
+
+   ```haskell
+   maxi :: [Int] -> Int
+   maxi = undefined
+   ```
+
+   ```haskell
+   ghci> maxi [3, 1, 4, 1, 5, 9, 2, 6]
+   9
+   ```
+
+## Partie B — Fonctions sur les listes de listes
+
+6. **`aplatir`** — concatène une liste de listes en une seule liste.
+
+   ```haskell
+   aplatir :: [[a]] -> [a]
+   aplatir = undefined
+   ```
+
+   ```haskell
+   ghci> aplatir [[1,2], [3,4], [5]]
+   [1, 2, 3, 4, 5]
+   ghci> aplatir []
+   []
+   ```
+
+7. **`estTriee`** — retourne `True` si la liste d'entiers est triée en ordre croissant.
+
+   ```haskell
+   estTriee :: [Int] -> Bool
+   estTriee = undefined
+   ```
+
+   ```haskell
+   ghci> estTriee [1, 2, 3, 4]
+   True
+   ghci> estTriee [1, 3, 2, 4]
+   False
+   ghci> estTriee []
+   True
+   ```
+
+8. **`prendre`** et **`laisser`** — les équivalents de `take` et `drop` de la
+   bibliothèque standard.
+
+   ```haskell
+   prendre :: Int -> [a] -> [a]
+   prendre = undefined
+
+   laisser :: Int -> [a] -> [a]
+   laisser = undefined
+   ```
+
+   ```haskell
+   ghci> prendre 3 [1,2,3,4,5]
+   [1,2,3]
+   ghci> laisser 3 [1,2,3,4,5]
+   [4,5]
+   ```

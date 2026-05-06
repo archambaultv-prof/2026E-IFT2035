@@ -1,0 +1,98 @@
+---
+sidebar_position: 8
+sidebar_label: "Ex. 7 — Ordre d'évaluation"
+description: Analyser la terminaison et le comportement sous évaluation paresseuse vs stricte.
+---
+
+# Exercice 7 — Ordre d'évaluation
+
+## Rappel
+
+Haskell utilise l'**évaluation paresseuse** (*lazy evaluation*) : une expression
+n'est calculée que lorsque sa valeur est réellement nécessaire.
+
+La plupart des autres langages (Python, Java, OCaml…) utilisent l'**évaluation
+stricte** (*eager/strict evaluation*) : les arguments sont entièrement évalués
+avant d'être passés à une fonction.
+
+```
+-- Évaluation stricte :
+const 42 (error "boom")  →  évalue error "boom"  →  plantage !
+
+-- Évaluation paresseuse (Haskell) :
+const 42 (error "boom")  →  42   -- le second argument n'est jamais évalué
+```
+
+## Partie A — Terminaison
+
+Pour chaque expression Haskell ci-dessous, indiquer si elle **termine** ou
+**diverge** (boucle indéfiniment / lève une erreur) sous évaluation paresseuse.
+Justifier.
+
+1. `const 1 undefined`
+
+2. `head [1, 2, 3]`
+
+3. `head []`
+
+4. `head (filter even [1, 3, 5, 7, ...])`
+   (liste infinie d'entiers impairs — pas de pair dedans)
+
+5. `take 5 [1..]`
+
+6. `length [1..]`
+
+7. `null []`
+
+8. `fst (1, undefined)`
+
+9. `snd (undefined, 2)`
+
+10. `if True then 42 else undefined`
+
+## Partie B — Listes infinies
+
+En Haskell, on peut définir des listes infinies grâce à l'évaluation paresseuse.
+
+11. Définir la liste infinie de tous les entiers naturels à partir de 0.
+
+    ```haskell
+    naturels :: [Int]
+    naturels = undefined
+    ```
+
+12. Définir la liste infinie de tous les entiers pairs.
+
+    ```haskell
+    pairs :: [Int]
+    pairs = undefined  -- utiliser filter ou map sur naturels
+    ```
+
+13. La **suite de Fibonacci** peut être définie de façon élégante en Haskell :
+
+    ```haskell
+    fibs :: [Integer]
+    fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
+    ```
+
+    1. Évaluer à la main les 5 premiers éléments de `fibs`.
+    2. Comment obtenir les 10 premiers nombres de Fibonacci ?
+    3. Pourquoi cette définition fonctionne-t-elle avec l'évaluation paresseuse
+       mais divergerait avec l'évaluation stricte ?
+
+## Partie C — Évaluation et effets de bord
+
+14. En Haskell, l'ordre d'évaluation n'a normalement **aucune importance** sur
+    le résultat final (si les deux évaluations terminent). Pourquoi ?
+
+15. Considérer la fonction suivante :
+
+    ```haskell
+    maFonction :: Int -> Int -> Int
+    maFonction x y = x + x
+    ```
+
+    1. Avec évaluation stricte, combien de fois l'argument `y` est-il évalué ?
+    2. Avec évaluation paresseuse, combien de fois ?
+    3. L'évaluation paresseuse est-elle toujours plus rapide que l'évaluation
+       stricte ? Donner un contre-exemple.

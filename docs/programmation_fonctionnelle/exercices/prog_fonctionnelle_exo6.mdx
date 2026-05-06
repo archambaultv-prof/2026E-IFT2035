@@ -1,0 +1,88 @@
+---
+sidebar_position: 7
+sidebar_label: "Ex. 6 — Fonctions d'ordre supérieur"
+description: Maîtriser map, filter, foldr et la composition de fonctions.
+---
+
+# Exercice 6 — Fonctions d'ordre supérieur
+
+## Partie A — Utiliser `map`, `filter` et `foldr`
+
+Écrire chacune des fonctions suivantes en une seule expression utilisant
+`map`, `filter`, `foldr` et/ou des lambdas. **Ne pas utiliser de récursion
+explicite.**
+
+1. **`doublerTout`** — doubler chaque élément d'une liste d'entiers.
+
+   ```haskell
+   doublerTout :: [Int] -> [Int]
+   doublerTout = undefined
+   ```
+
+2. **`carres`** — élever au carré chaque élément.
+
+   ```haskell
+   carres :: [Int] -> [Int]
+   carres = undefined
+   ```
+
+3. **`garderPairs`** — ne garder que les entiers pairs.
+
+   ```haskell
+   garderPairs :: [Int] -> [Int]
+   garderPairs = undefined
+   ```
+
+4. **`somme`** — calculer la somme d'une liste (sans récursion, avec `foldr`).
+
+   ```haskell
+   somme :: [Int] -> Int
+   somme = undefined
+   ```
+
+5. **`produit`** — calculer le produit.
+
+   ```haskell
+   produit :: [Int] -> Int
+   produit = undefined
+   ```
+
+6. **`tousVrais`** — retourne `True` si tous les éléments d'une liste de
+   booléens sont `True`.
+
+   ```haskell
+   tousVrais :: [Bool] -> Bool
+   tousVrais = undefined
+   ```
+
+7. **`longueur`** — calculer la longueur d'une liste avec `foldr`.
+
+   ```haskell
+   longueur :: [a] -> Int
+   longueur = undefined
+   ```
+
+8. **`aplatir`** — aplatir une liste de listes avec `foldr`.
+
+   ```haskell
+   aplatir :: [[a]] -> [a]
+   aplatir = undefined
+   ```
+
+## Partie B — Réimplémenter `map` et `filter`
+
+9. Réimplémenter `map` à l'aide de `foldr` uniquement.
+
+   ```haskell
+   monMap :: (a -> b) -> [a] -> [b]
+   monMap f = foldr _ []
+   ```
+
+   Quel est le type du trou `_` ?
+
+10. Réimplémenter `filter` à l'aide de `foldr`.
+
+    ```haskell
+    monFilter :: (a -> Bool) -> [a] -> [a]
+    monFilter p = foldr _ []
+    ```

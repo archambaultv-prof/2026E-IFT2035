@@ -1,0 +1,105 @@
+---
+sidebar_position: 6
+sidebar_label: "Ex. 5 — Mini évaluateur avec fonctions"
+description: Étendre un évaluateur pour supporter les variables, les lambdas et les fermetures.
+---
+
+# Exercice 5 — Mini évaluateur avec fonctions
+
+## Le type de données
+
+Nous allons construire un mini-interpréteur pour un langage fonctionnel
+minimaliste. Le type des expressions est :
+
+```haskell
+type Nom = String
+
+data Exp
+  = Lit  Int           -- littéral entier
+  | Var  Nom           -- variable,          ex : Var "x"
+  | Lam  Nom  Exp      -- abstraction lambda, ex : Lam "x" (Var "x")
+  | App  Exp  Exp      -- application,        ex : App (Var "f") (Lit 3)
+  | Plus Exp  Exp      -- addition
+  | If   Exp  Exp Exp  -- conditionnel (condition non-nulle = vrai)
+  deriving (Show)
+```
+
+## L'environnement et les valeurs
+
+Un **environnement** associe des noms à des valeurs :
+
+```haskell
+type Env = [(Nom, Val)]
+```
+
+Les valeurs sont des entiers ou des **fermetures** (*closures*) : une fonction
+porte avec elle l'environnement dans lequel elle a été définie.
+
+```haskell
+data Val
+  = VInt Int
+  | VFun Nom Exp Env   -- paramètre, corps, environnement capturé
+  deriving (Show)
+```
+
+La recherche d'un nom dans l'environnement :
+
+```haskell
+chercher :: Nom -> Env -> Val
+chercher x [] = error ("Variable non définie : " ++ x)
+chercher x ((y, v) : reste)
+  | x == y    = v
+  | otherwise = chercher x reste
+```
+
+## Questions
+
+1. **Écrire l'évaluateur.**
+
+   ```haskell
+   eval :: Env -> Exp -> Val
+   eval env (Lit n)       = VInt n
+   eval env (Var x)       = chercher x env
+   eval env (Lam x corps) = undefined           -- construire une fermeture
+   eval env (App f arg)   = undefined           -- appliquer la fermeture
+   eval env (Plus e1 e2)  = undefined
+   eval env (If cond t f) = undefined
+   ```
+
+   Pour l'application `App f arg` :
+   - Évaluer `f` : on obtient une fermeture `VFun x corps envF`.
+   - Évaluer `arg` : on obtient une valeur `v`.
+   - Évaluer `corps` dans l'environnement `(x, v) : envF`.
+
+2. **Évaluer à la main** les expressions suivantes, puis vérifier avec votre
+   code (avec `env0 = []` comme environnement initial).
+
+   1. `App (Lam "x" (Plus (Var "x") (Lit 1))) (Lit 5)`
+      — représente $(\lambda x.\; x + 1) \; 5$
+
+   2. `App (App (Lam "x" (Lam "y" (Plus (Var "x") (Var "y")))) (Lit 3)) (Lit 4)`
+      — représente $(\lambda x.\; \lambda y.\; x + y) \; 3 \; 4$
+
+   3. La fonction identité appliquée à elle-même :
+      `App (Lam "x" (Var "x")) (Lam "y" (Var "y"))`
+
+3. **Fermetures et portée.** Considérer le programme suivant :
+
+   ```haskell
+   -- let x = 10 in
+   --   let f = \y -> x + y in
+   --     let x = 999 in
+   --       f 1
+   expr :: Exp
+   expr =
+     App (Lam "x"
+           (App (Lam "f"
+                  (App (Lam "x" (App (Var "f") (Lit 1)))
+                       (Lit 999)))
+                (Lam "y" (Plus (Var "x") (Var "y")))))
+         (Lit 10)
+   ```
+
+   - Évaluer `expr`. Quel est le résultat ?
+   - Expliquer pourquoi ce résultat démontre que notre évaluateur utilise
+     la **portée lexicale** (et non dynamique).

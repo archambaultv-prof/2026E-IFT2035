@@ -1,0 +1,93 @@
+---
+sidebar_position: 4
+sidebar_label: "Ex. 3 -Grammaires et arbres de dérivation"
+description: Explorer plusieurs grammaires BNF pour l'addition et la multiplication.
+---
+
+# Exercice 3 - Grammaire et arbre de dérivation
+
+Nous allons voir dans cette section plusieurs grammaires BNF possibles pour
+l'addition et la multiplication. Vous verrez qu'il est facile de générer une
+grammaire BNF ambiguë ou ne respectant pas la priorité et l'associativité des
+opérations.
+
+## Grammaire 1
+
+Soit la grammaire ci-dessous :
+
+```
+<expr>    ::= <expr> + <expr> | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+1. Montrer que dans cette grammaire, pour une même expression, il est possible
+   de choisir une dérivation où l'opérateur est associatif à gauche et une
+   dérivation où l'opérateur est associatif à droite. Cela démontre que la
+   grammaire est ambiguë.
+
+## Grammaire 2
+
+Voici comment on pourrait transformer la grammaire 1 pour lever l'ambiguïté.
+
+```
+<expr>    ::= <expr> + <terme> | <chiffre>
+<terme>   ::= '(' <expr> ')' | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+1. Montrer que cette grammaire est associative à gauche.
+2. Donner l'arbre de dérivation de l'expression $1 + (1 + 1) + 1$.
+
+:::note
+
+Cette grammaire est récursive à gauche et associative à gauche.
+
+:::
+
+## Grammaire 3
+
+Donner une grammaire BNF similaire à la grammaire 1 mais cette fois-ci
+associative à droite.
+
+## Grammaire 4
+
+La grammaire 2 est associative à gauche et non ambiguë. Voici une première
+tentative d'ajouter l'opérateur de multiplication.
+
+```
+<expr>    ::= <expr> + <terme> | <expr> * <terme> | <chiffre>
+<terme>   ::= '(' <expr> ')' | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+1. Montrer que cette grammaire est non ambiguë.
+2. Cette grammaire ne respecte pas la priorité des opérations. Donner l'arbre
+   de dérivation des expressions $1 + 2 * 3$ et $1 * 2 + 3$.
+
+## Grammaire 5
+
+Soit la grammaire ci-dessous qui corrige le défaut de la grammaire 4.
+
+```
+<expr>    ::= <expr> + <terme> | <terme>
+<terme>   ::= <terme> * <facteur> | <facteur>
+<facteur> ::= '(' <expr> ')' | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+1. Cette grammaire respecte la priorité des opérations. Donner l'arbre de
+   dérivation des expressions $1 + 2 * 3$ et $1 * 2 + 3$.
+
+## Grammaire 6
+
+Voici comment ajouter la soustraction et la division.
+
+```
+<expr>    ::= <expr> + <terme> | <expr> - <terme> | <terme>
+<terme>   ::= <terme> * <facteur> | <terme> / <facteur> | <facteur>
+<facteur> ::= '(' <expr> ')' | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+1. Pourquoi peut-on ajouter la soustraction (division) dans la même catégorie
+   que l'addition (multiplication) plutôt que de créer une nouvelle catégorie ?
