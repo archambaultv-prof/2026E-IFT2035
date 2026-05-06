@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 180" width="260" height="180">
+  <!-- edges -->
+  <line x1="130" y1="40" x2="70" y2="100" stroke="#555" stroke-width="2"/>
+  <line x1="130" y1="40" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+  <line x1="190" y1="100" x2="155" y2="155" stroke="#555" stroke-width="2"/>
+  <line x1="190" y1="100" x2="225" y2="155" stroke="#555" stroke-width="2"/>
+  <!-- nodes -->
+  <circle cx="130" cy="40" r="22" fill="#2f6b3f" stroke="#234a2b" stroke-width="2"/>
+  <text x="130" y="46" text-anchor="middle" font-family="monospace" font-size="18" fill="white">+</text>
+  <circle cx="70" cy="110" r="22" fill="#2f6b3f" stroke="#234a2b" stroke-width="2"/>
+  <text x="70" y="116" text-anchor="middle" font-family="monospace" font-size="18" fill="white">1</text>
+  <circle cx="190" cy="110" r="22" fill="#2f6b3f" stroke="#234a2b" stroke-width="2"/>
+  <text x="190" y="116" text-anchor="middle" font-family="monospace" font-size="18" fill="white">*</text>
+  <circle cx="155" cy="160" r="18" fill="#4a9b5f" stroke="#234a2b" stroke-width="2"/>
+  <text x="155" y="166" text-anchor="middle" font-family="monospace" font-size="16" fill="white">2</text>
+  <circle cx="225" cy="160" r="18" fill="#4a9b5f" stroke="#234a2b" stroke-width="2"/>
+  <text x="225" y="166" text-anchor="middle" font-family="monospace" font-size="16" fill="white">3</text>
+</svg>

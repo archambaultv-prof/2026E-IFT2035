@@ -1,0 +1,95 @@
+---
+sidebar_position: 3
+sidebar_label: Arbre de syntaxe abstraite
+description: Introduction aux arbres de syntaxe abstraite (AST) — structure, propriétés et exemples.
+---
+
+# Arbre de syntaxe abstraite
+
+## Qu'est-ce qu'un AST ?
+
+Un **arbre de syntaxe abstraite** (AST, de l'anglais *Abstract Syntax Tree*)
+est une représentation hiérarchique de la structure d'un programme ou d'une
+expression. Plutôt que de travailler sur le texte brut, les compilateurs et les
+interprètes construisent d'abord un AST, puis opèrent sur cette structure.
+
+L'AST est dit *abstrait* parce qu'il capture l'essentiel de la structure du
+programme sans conserver tous les détails textuels superflus (espaces,
+parenthèses redondantes, mots-clés de groupement, etc.).
+
+Les propriétés clés d'un AST sont :
+
+- **Pas de parenthèses** : l'ordre d'évaluation est encodé dans la structure
+  même de l'arbre — il n'est pas nécessaire de les représenter explicitement.
+- **Les nœuds internes** représentent les opérations : opérateurs arithmétiques,
+  appels de fonctions, structures de contrôle, etc.
+- **Les feuilles** représentent les valeurs littérales ou les identificateurs.
+- **Les opérations les plus prioritaires** se trouvent plus **bas** dans l'arbre,
+  plus proches des feuilles.
+
+## Pourquoi utiliser un AST ?
+
+On pourrait se demander pourquoi ne pas travailler directement sur le texte
+source. Les raisons sont multiples :
+
+- **Analyse plus simple** : parcourir un arbre est bien plus simple que
+  d'analyser une chaîne de caractères avec des règles de priorité.
+- **Transformations** : optimiser, refactoriser ou compiler un programme revient
+  à transformer un arbre — une opération naturelle et récursive.
+- **Indépendance de la syntaxe concrète** : deux syntaxes différentes peuvent
+  produire le même AST. Par exemple, `1 + (2 * 3)` et `1 + 2 * 3` produisent
+  le même arbre (en supposant les règles de priorité habituelles).
+
+Les outils comme Babel (JavaScript), rustc (Rust) ou GHC (Haskell) construisent
+tous un AST comme première étape de compilation.
+
+## Exemples
+
+### `1 + 2 * 3`
+
+L'expression `1 + 2 * 3` est interprétée comme `1 + (2 * 3)` grâce à la
+priorité de la multiplication sur l'addition. La multiplication forme donc un
+sous-arbre *plus bas* dans l'arbre, à droite de l'addition.
+
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-1-plus-2-fois-3.svg" alt="AST de 1 + 2 * 3" />
+  <p><em>AST de <code>1 + 2 * 3</code> ≡ <code>1 + (2 * 3)</code></em></p>
+</div>
+
+On peut lire cet arbre de bas en haut pour comprendre l'ordre d'évaluation :
+d'abord `2 * 3 = 6`, puis `1 + 6 = 7`.
+
+### `(1 + 2) * 3`
+
+Avec les parenthèses, c'est maintenant l'addition qui est évaluée en premier.
+Elle descend plus bas dans l'arbre, et la multiplication se retrouve à la racine.
+
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-1-plus-2-fois-3-parentheses.svg" alt="AST de (1 + 2) * 3" />
+  <p><em>AST de <code>(1 + 2) * 3</code></em></p>
+</div>
+
+On lit l'arbre de bas en haut : d'abord `1 + 2 = 3`, puis `3 * 3 = 9`.
+
+:::tip Règle générale
+Plus une opération est prioritaire, plus elle apparaît **bas** dans l'arbre
+(proche des feuilles). La racine de l'arbre correspond à la dernière opération
+effectuée.
+:::
+
+## Construction d'un AST sans grammaire formelle
+
+Un AST peut être construit de plusieurs façons :
+
+- **À partir d'une grammaire formelle** (BNF/EBNF) : un analyseur syntaxique
+  (*parser*) lit le texte et applique les règles de la grammaire pour construire
+  l'arbre. C'est l'approche théorique présentée dans la section suivante.
+- **Par descente récursive** : on écrit directement des fonctions récursives qui
+  analysent le texte et construisent les nœuds de l'arbre, sans écrire
+  explicitement de grammaire formelle.
+- **Avec un générateur de parseurs** : des outils comme ANTLR, Menhir ou Happy
+  prennent une grammaire en entrée et génèrent automatiquement le code du
+  parseur.
+
+Quelle que soit la méthode de construction, la structure de l'AST résultant est
+la même.

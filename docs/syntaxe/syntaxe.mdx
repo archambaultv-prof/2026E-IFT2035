@@ -1,0 +1,42 @@
+---
+sidebar_position: 1
+sidebar_label: Introduction
+description: Introduction à la syntaxe et à la sémantique des langages de programmation.
+---
+
+# Syntaxe
+
+## Syntaxe et sémantique
+
+Tout langage de programmation repose sur deux concepts fondamentaux :
+
+- **Syntaxe** : la représentation textuelle d'un programme. Elle définit quelles
+  suites de caractères forment un programme *valide*, indépendamment de ce que
+  ce programme fait.
+- **Sémantique** : le sens attaché à un programme. Elle définit ce que le
+  programme *fait* lorsqu'il s'exécute.
+
+Ensemble, la syntaxe et la sémantique constituent la **spécification** d'un
+langage de programmation. C'est ce qui distingue un langage d'un autre.
+
+:::info[Exemple]
+La ligne `x = 1 + 2` est syntaxiquement valide en Python. Sa sémantique est
+d'évaluer l'expression `1 + 2` (qui vaut `3`) et d'associer ce résultat à la
+variable `x`.
+
+En revanche, `x = 1 +` est syntaxiquement *invalide* : aucune sémantique ne
+lui est associée, car le programme ne peut même pas être analysé.
+:::
+
+On peut aussi avoir un programme syntaxiquement valide mais sémantiquement
+erroné. Par exemple, `x = 1 / 0` est syntaxiquement correct, mais sa sémantique
+provoque une erreur à l'exécution (division par zéro).
+
+## Plan du chapitre
+
+Ce chapitre couvre les grandes notions de syntaxe suivantes :
+
+- La position des opérateurs : [préfixe, infixe et postfixe](prefix-infix-postfix).
+- Les [arbres de syntaxe abstraite](arbre-syntaxe-abstraite) (AST).
+- La [grammaire BNF](grammaire-bnf) : règles de production, dérivation et ambiguïté.
+- La [grammaire EBNF](grammaire-ebnf) et ses extensions pratiques.

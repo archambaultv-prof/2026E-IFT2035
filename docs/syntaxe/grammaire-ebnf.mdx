@@ -1,0 +1,110 @@
+---
+sidebar_position: 5
+sidebar_label: Grammaire EBNF
+description: La grammaire EBNF et ses extensions pratiques pour les répétitions et les éléments optionnels.
+---
+
+# Grammaire EBNF
+
+## Motivation
+
+La grammaire BNF permet de décrire n'importe quelle syntaxe, mais les règles
+peuvent devenir verbeuses pour des constructions courantes comme « zéro ou
+plusieurs répétitions » ou « élément optionnel ». La grammaire **EBNF**
+(*Extended Backus-Naur Form*) étend la BNF avec des notations supplémentaires
+qui rendent les règles plus concises et plus lisibles.
+
+## Notations EBNF
+
+| Notation | Signification | Équivalent BNF |
+|---|---|---|
+| `A \| B` | Alternative : `A` ou `B` | `<x> ::= A \| B` |
+| `[ A ]` | Optionnel : zéro ou une occurrence de `A` | `<x> ::= A \| ε` |
+| `{ A }` | Répétition : zéro ou plusieurs occurrences de `A` | `<x> ::= A <x> \| ε` |
+| `( A B )` | Groupement | — |
+
+Le symbole `ε` (epsilon) représente la chaîne vide.
+
+## Exemples
+
+### Nombre entier (signé optionnel)
+
+En BNF :
+```
+<entier>  ::= <signe> <chiffres>
+            | <chiffres>
+<signe>   ::= + | -
+<chiffres> ::= <chiffre> <chiffres>
+             | <chiffre>
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+En EBNF, on peut l'écrire de façon bien plus compacte :
+```
+<entier>  ::= [ + | - ] <chiffre> { <chiffre> }
+<chiffre> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+- `[ + | - ]` : le signe est optionnel.
+- `<chiffre> { <chiffre> }` : au moins un chiffre, suivi de zéro ou plusieurs
+  chiffres supplémentaires.
+
+### Liste d'arguments
+
+En EBNF, une liste d'arguments séparés par des virgules (comme en Python ou en
+C) peut s'écrire :
+```
+<liste-args> ::= ( [ <expr> { , <expr> } ] )
+```
+
+Cela exprime : une parenthèse ouvrante, puis optionnellement une première
+expression suivie de zéro ou plusieurs `, <expr>`, puis une parenthèse
+fermante. Cette règle EBNF remplace plusieurs règles BNF récursives.
+
+### Expressions arithmétiques complètes
+
+Voici une grammaire EBNF pour les expressions arithmétiques avec les quatre
+opérations, qui tient compte de la priorité :
+
+```
+<expr>    ::= <terme> { ( + | - ) <terme> }
+<terme>   ::= <facteur> { ( * | / ) <facteur> }
+<facteur> ::= [ - ] ( nombre | ( <expr> ) )
+```
+
+- `{ ( + | - ) <terme> }` : zéro ou plusieurs additions ou soustractions.
+- `[ - ]` : le signe négatif unaire est optionnel.
+
+Cette grammaire est non ambiguë : la priorité de `*` et `/` sur `+` et `-` est
+encodée par la hiérarchie des non-terminaux.
+
+## BNF vs EBNF — synthèse
+
+| Aspect | BNF | EBNF |
+|---|---|---|
+| Récursion explicite | Obligatoire pour les répétitions | Remplacée par `{ }` |
+| Lisibilité | Plus verbeux | Plus concis |
+| Expressivité | Équivalente | Équivalente |
+| Usage courant | Manuels formels, papiers académiques | Spécifications de langages modernes (ex. : Python, Rust) |
+
+:::info
+BNF et EBNF sont **équivalentes en expressivité** : tout ce qui peut être
+exprimé dans l'une peut l'être dans l'autre. EBNF est simplement une syntaxe
+plus pratique pour l'écriture humaine.
+:::
+
+## Variantes syntaxiques
+
+Il n'existe pas de standard universel pour EBNF. Selon les documents ou les
+outils, vous pouvez rencontrer des variantes :
+
+- Les accolades `{ }` pour la répétition peuvent être remplacées par `*` ou `+`
+  (comme en expressions régulières).
+- Les crochets `[ ]` peuvent être remplacés par `?`.
+- Les non-terminaux ne sont pas toujours entre chevrons.
+
+Par exemple, les grammaires des langages Python et Rust utilisent une syntaxe
+proche de celle des expressions régulières pour leurs grammaires officielles.
+
+Quelle que soit la variante, l'idée fondamentale reste la même : décrire
+formellement la syntaxe d'un langage de façon non ambiguë.

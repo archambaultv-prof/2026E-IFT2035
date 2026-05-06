@@ -1,0 +1,133 @@
+---
+sidebar_position: 4
+sidebar_label: Grammaire BNF
+description: La grammaire BNF, la dérivation, l'ambiguïté et sa résolution par hiérarchie de non-terminaux.
+---
+
+# Grammaire BNF
+
+## Présentation
+
+La **grammaire BNF** (Backus-Naur Form, ou forme de Backus-Naur) est une
+notation formelle permettant de décrire la syntaxe d'un langage. Elle définit
+les règles qui permettent de construire des programmes (ou des expressions)
+valides. Chaque dérivation produit un [arbre de syntaxe abstraite](arbre-syntaxe-abstraite).
+
+## Grammaire BNF
+
+La **grammaire BNF** (Backus-Naur Form, ou forme de Backus-Naur) est une
+notation formelle permettant de décrire la syntaxe d'un langage. Elle définit
+les règles qui permettent de construire des programmes (ou des expressions)
+valides, et sert de base pour construire des AST.
+
+Une grammaire BNF est constituée de **règles de production** de la forme :
+
+```
+<non-terminal> ::= <expression>
+```
+
+- Les **non-terminaux** sont des symboles abstraits entourés de chevrons `< >`.
+  Ils peuvent être développés par les règles de production.
+- Les **terminaux** sont des symboles concrets : mots-clés, opérateurs,
+  littéraux. Ils apparaissent tels quels dans le texte source.
+- Le symbole `|` sépare les alternatives.
+
+### Exemple : les nombres flottants
+
+```
+<flottant> ::= <entier> . <entier>
+             | <entier>
+<entier>   ::= <chiffre> <entier>
+             | <chiffre>
+<chiffre>  ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+
+Cette grammaire reconnaît des nombres comme `3`, `42`, `1.5`, ou `3.14`.
+
+### Dérivation
+
+Pour vérifier qu'une chaîne est valide, on effectue une **dérivation** : on part
+du non-terminal de départ et on applique des règles de production jusqu'à
+n'obtenir que des terminaux.
+
+Dérivation de `1.5` :
+
+```
+<flottant>
+  ::= <entier> . <entier>
+  ::= <chiffre> . <entier>
+  ::= 1 . <entier>
+  ::= 1 . <chiffre>
+  ::= 1 . 5
+```
+
+La dérivation correspond à l'arbre suivant :
+
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-flottant-1-5.svg" alt="AST de 1.5" />
+  <p><em>Arbre de dérivation de <code>1.5</code></em></p>
+</div>
+
+## Ambiguïté
+
+Une grammaire est dite **ambiguë** si une même chaîne peut être dérivée de
+plusieurs façons différentes, produisant des arbres de syntaxe distincts.
+
+### Exemple de grammaire ambiguë
+
+```
+<expr> ::= <expr> + <expr>
+         | <expr> * <expr>
+         | ( <expr> )
+         | nombre
+```
+
+La chaîne `1 + 2 * 3` peut être dérivée de deux façons :
+
+**Arbre 1 — interprétation `(1 + 2) * 3`** (incorrect si on veut la priorité habituelle)
+
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-ambigu-arbre1.svg" alt="Ambiguïté : (1 + 2) * 3" />
+  <p><em>Dérivation donnant <code>(1 + 2) * 3 = 9</code></em></p>
+</div>
+
+**Arbre 2 — interprétation `1 + (2 * 3)`** (correct)
+
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-ambigu-arbre2.svg" alt="Ambiguïté : 1 + (2 * 3)" />
+  <p><em>Dérivation donnant <code>1 + (2 * 3) = 7</code></em></p>
+</div>
+
+L'ambiguïté est problématique parce qu'un compilateur ou un interprète ne sait
+pas quelle dérivation choisir : le comportement du programme serait
+indéterminé.
+
+## Résoudre l'ambiguïté
+
+La solution classique est de réécrire la grammaire en introduisant des
+**non-terminaux intermédiaires** qui imposent une hiérarchie de priorité. On
+attribue à chaque niveau de priorité son propre non-terminal.
+
+```
+<expr>    ::= <expr> + <terme>
+            | <terme>
+<terme>   ::= <terme> * <facteur>
+            | <facteur>
+<facteur> ::= ( <expr> )
+            | nombre
+```
+
+Avec cette grammaire :
+
+- `<facteur>` est le plus prioritaire : il regroupe les littéraux et les
+  expressions entre parenthèses.
+- `<terme>` gère la multiplication, qui est plus prioritaire que l'addition.
+- `<expr>` gère l'addition au niveau le plus bas.
+
+La chaîne `1 + 2 * 3` n'admet désormais **qu'une seule** dérivation, qui
+produit le bon arbre `1 + (2 * 3)`. La grammaire est non ambiguë.
+
+:::tip Règle générale
+Plus un opérateur est prioritaire, plus son non-terminal apparaît **bas** dans
+la hiérarchie de la grammaire (plus proche des terminaux).
+:::

@@ -1,0 +1,113 @@
+---
+sidebar_position: 2
+sidebar_label: Préfixe, infixe et postfixe
+description: Les trois conventions de placement des opérateurs — préfixe, infixe et postfixe — ainsi que les règles de priorité et d'associativité.
+---
+
+# Préfixe, infixe et postfixe
+
+Lorsque l'on écrit une expression avec des opérateurs, il faut choisir où
+placer l'opérateur par rapport à ses opérandes. Il existe trois conventions
+principales.
+
+## Préfixe
+
+En notation **préfixe** (aussi appelée *notation polonaise*), l'opérateur est
+écrit **avant** ses opérandes.
+
+```
++ 1 2      ≡  1 + 2
+* + 1 2 3  ≡  (1 + 2) * 3
+```
+
+La notation préfixe est non ambiguë : il n'est pas nécessaire de définir des
+règles de priorité ni d'associativité. Chaque opérateur prend un nombre fixe
+d'arguments, ce qui permet d'analyser l'expression de gauche à droite sans
+jamais revenir en arrière. C'est la syntaxe utilisée par les langages de la
+famille Lisp (ex. : Racket, Scheme, Clojure).
+
+## Postfixe
+
+En notation **postfixe** (aussi appelée *notation polonaise inversée* ou RPN),
+l'opérateur est écrit **après** ses opérandes.
+
+```
+1 2 +      ≡  1 + 2
+1 2 + 3 *  ≡  (1 + 2) * 3
+```
+
+Tout comme la notation préfixe, la notation postfixe est non ambiguë. Elle est
+particulièrement adaptée à l'évaluation par une pile : on empile chaque opérande
+rencontré, et chaque opérateur dépile ses arguments puis empile le résultat.
+Certaines calculatrices scientifiques (ex. : HP) utilisent la notation RPN.
+
+## Infixe
+
+En notation **infixe**, l'opérateur est placé **entre** ses opérandes.
+
+```
+1 + 2
+a * b - c
+```
+
+C'est la notation la plus familière en mathématiques et dans la majorité des
+langages de programmation courants (Python, Java, C, etc.). Cependant, elle est
+intrinsèquement **ambiguë** sans règles supplémentaires.
+
+### Exemples d'ambiguïté
+
+| Expression | Interprétation A | Interprétation B |
+|---|---|---|
+| `1 + 2 * 3` | `(1 + 2) * 3 = 9` | `1 + (2 * 3) = 7` |
+| `sin a - b` | `(sin a) - b` | `sin (a - b)` |
+| `a + b + c` | `(a + b) + c` | `a + (b + c)` |
+
+Pour lever ces ambiguïtés, on recourt à deux mécanismes : la **priorité** et
+l'**associativité**.
+
+### Priorité
+
+Chaque opérateur possède un niveau de priorité. Un opérateur de priorité plus
+élevée « s'accroche » à ses opérandes avant un opérateur de priorité plus basse.
+
+Exemple de hiérarchie courante (de la plus haute à la plus basse) :
+
+1. Parenthèses `()`
+2. Application de fonctions (`sin`, `cos`, …)
+3. Exponentiation `**`
+4. Multiplication `*` et division `/`
+5. Addition `+` et soustraction `-`
+6. Comparaisons `<`, `>`, `==`, …
+
+Ainsi, `1 + 2 * 3` est interprété comme `1 + (2 * 3) = 7` parce que `*` a une
+priorité plus élevée que `+`. De même, `a + b < c` est interprété comme
+`(a + b) < c`.
+
+La table de priorité exacte dépend de chaque langage. Consultez par exemple la
+[table de priorité des opérateurs Python](https://www.w3schools.com/python/python_operators_precedence.asp).
+
+### Associativité
+
+Lorsque deux opérateurs ont **la même priorité**, l'associativité détermine
+l'ordre d'évaluation.
+
+- **Associativité à gauche** : on évalue de gauche à droite.
+  ```
+  a + b - c  ≡  (a + b) - c
+  ```
+- **Associativité à droite** : on évalue de droite à gauche.
+  ```
+  2 ** 3 ** 2  ≡  2 ** (3 ** 2) = 2 ** 9 = 512
+  ```
+  (et non `(2 ** 3) ** 2 = 64`)
+
+En Python, l'opérateur d'exponentiation `**` est associatif à droite, tandis
+que la plupart des opérateurs arithmétiques sont associatifs à gauche.
+
+## Comparaison
+
+| Notation | Exemple | Avantages | Inconvénients |
+|---|---|---|---|
+| Préfixe | `+ 1 2` | Non ambiguë, facile à analyser | Moins lisible pour les humains |
+| Infixe | `1 + 2` | Familière et lisible | Nécessite priorité + associativité |
+| Postfixe | `1 2 +` | Non ambiguë, idéale pour les piles | Peu intuitive |

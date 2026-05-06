@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 280" width="340" height="280">
+  <!-- edges level 1 -->
+  <line x1="170" y1="30" x2="80" y2="90" stroke="#555" stroke-width="1.5"/>
+  <line x1="170" y1="30" x2="170" y2="90" stroke="#555" stroke-width="1.5"/>
+  <line x1="170" y1="30" x2="270" y2="90" stroke="#555" stroke-width="1.5"/>
+  <!-- edges level 2 left (entier -> chiffre -> 1) -->
+  <line x1="80" y1="110" x2="80" y2="160" stroke="#555" stroke-width="1.5"/>
+  <line x1="80" y1="180" x2="80" y2="230" stroke="#555" stroke-width="1.5"/>
+  <!-- edges level 2 right (entier -> chiffre -> 5) -->
+  <line x1="270" y1="110" x2="270" y2="160" stroke="#555" stroke-width="1.5"/>
+  <line x1="270" y1="180" x2="270" y2="230" stroke="#555" stroke-width="1.5"/>
+
+  <!-- root: <flottant> -->
+  <rect x="100" y="10" width="140" height="28" rx="5" fill="#2f6b3f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="170" y="29" text-anchor="middle" font-family="monospace" font-size="13" fill="white">&lt;flottant&gt;</text>
+
+  <!-- left: <entier> -->
+  <rect x="30" y="90" width="100" height="28" rx="5" fill="#2f6b3f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="80" y="109" text-anchor="middle" font-family="monospace" font-size="13" fill="white">&lt;entier&gt;</text>
+  <!-- dot -->
+  <rect x="145" y="90" width="50" height="28" rx="5" fill="#888" stroke="#444" stroke-width="1.5"/>
+  <text x="170" y="109" text-anchor="middle" font-family="monospace" font-size="16" fill="white">.</text>
+  <!-- right: <entier> -->
+  <rect x="220" y="90" width="100" height="28" rx="5" fill="#2f6b3f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="270" y="109" text-anchor="middle" font-family="monospace" font-size="13" fill="white">&lt;entier&gt;</text>
+
+  <!-- left chiffre -->
+  <rect x="30" y="160" width="100" height="28" rx="5" fill="#2f6b3f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="80" y="179" text-anchor="middle" font-family="monospace" font-size="13" fill="white">&lt;chiffre&gt;</text>
+  <!-- left leaf: 1 -->
+  <rect x="55" y="230" width="50" height="28" rx="5" fill="#4a9b5f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="80" y="249" text-anchor="middle" font-family="monospace" font-size="16" fill="white">1</text>
+
+  <!-- right chiffre -->
+  <rect x="220" y="160" width="100" height="28" rx="5" fill="#2f6b3f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="270" y="179" text-anchor="middle" font-family="monospace" font-size="13" fill="white">&lt;chiffre&gt;</text>
+  <!-- right leaf: 5 -->
+  <rect x="245" y="230" width="50" height="28" rx="5" fill="#4a9b5f" stroke="#234a2b" stroke-width="1.5"/>
+  <text x="270" y="249" text-anchor="middle" font-family="monospace" font-size="16" fill="white">5</text>
+</svg>
