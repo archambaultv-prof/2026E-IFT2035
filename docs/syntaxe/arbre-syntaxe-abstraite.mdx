@@ -11,7 +11,7 @@ description: Introduction aux arbres de syntaxe abstraite (AST) — structure, p
 Un **arbre de syntaxe abstraite** (AST, de l'anglais *Abstract Syntax Tree*)
 est une représentation hiérarchique de la structure d'un programme ou d'une
 expression. Plutôt que de travailler sur le texte brut, les compilateurs et les
-interprètes construisent d'abord un AST, puis opèrent sur cette structure.
+interpréteurs construisent d'abord un AST, puis opèrent sur cette structure.
 
 L'AST est dit *abstrait* parce qu'il capture l'essentiel de la structure du
 programme sans conserver tous les détails textuels superflus (espaces,
@@ -39,9 +39,6 @@ source. Les raisons sont multiples :
 - **Indépendance de la syntaxe concrète** : deux syntaxes différentes peuvent
   produire le même AST. Par exemple, `1 + (2 * 3)` et `1 + 2 * 3` produisent
   le même arbre (en supposant les règles de priorité habituelles).
-
-Les outils comme Babel (JavaScript), rustc (Rust) ou GHC (Haskell) construisent
-tous un AST comme première étape de compilation.
 
 ## Exemples
 
@@ -71,7 +68,7 @@ Elle descend plus bas dans l'arbre, et la multiplication se retrouve à la racin
 
 On lit l'arbre de bas en haut : d'abord `1 + 2 = 3`, puis `3 * 3 = 9`.
 
-:::tip Règle générale
+:::tip
 Plus une opération est prioritaire, plus elle apparaît **bas** dans l'arbre
 (proche des feuilles). La racine de l'arbre correspond à la dernière opération
 effectuée.

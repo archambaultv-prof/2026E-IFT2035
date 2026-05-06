@@ -6,21 +6,12 @@ description: La grammaire BNF, la dérivation, l'ambiguïté et sa résolution p
 
 # Grammaire BNF
 
-## Présentation
-
 La **grammaire BNF** (Backus-Naur Form, ou forme de Backus-Naur) est une
 notation formelle permettant de décrire la syntaxe d'un langage. Elle définit
 les règles qui permettent de construire des programmes (ou des expressions)
-valides. Chaque dérivation produit un [arbre de syntaxe abstraite](arbre-syntaxe-abstraite).
-
-## Grammaire BNF
-
-La **grammaire BNF** (Backus-Naur Form, ou forme de Backus-Naur) est une
-notation formelle permettant de décrire la syntaxe d'un langage. Elle définit
-les règles qui permettent de construire des programmes (ou des expressions)
-valides, et sert de base pour construire des AST.
-
-Une grammaire BNF est constituée de **règles de production** de la forme :
+valides. Chaque dérivation produit un [arbre de syntaxe
+abstraite](arbre-syntaxe-abstraite). Une grammaire BNF est constituée de
+**règles de production** de la forme :
 
 ```
 <non-terminal> ::= <expression>
@@ -73,6 +64,14 @@ La dérivation correspond à l'arbre suivant :
 Une grammaire est dite **ambiguë** si une même chaîne peut être dérivée de
 plusieurs façons différentes, produisant des arbres de syntaxe distincts.
 
+:::info
+
+L'ambiguïté est problématique parce qu'un compilateur ou un interpréteur ne sait
+pas quelle dérivation choisir : le comportement du programme serait
+indéterminé.
+
+:::
+
 ### Exemple de grammaire ambiguë
 
 ```
@@ -97,10 +96,6 @@ La chaîne `1 + 2 * 3` peut être dérivée de deux façons :
   <img src="/2026E-IFT2035/img/syntaxe/ast-ambigu-arbre2.svg" alt="Ambiguïté : 1 + (2 * 3)" />
   <p><em>Dérivation donnant <code>1 + (2 * 3) = 7</code></em></p>
 </div>
-
-L'ambiguïté est problématique parce qu'un compilateur ou un interprète ne sait
-pas quelle dérivation choisir : le comportement du programme serait
-indéterminé.
 
 ## Résoudre l'ambiguïté
 
@@ -127,7 +122,7 @@ Avec cette grammaire :
 La chaîne `1 + 2 * 3` n'admet désormais **qu'une seule** dérivation, qui
 produit le bon arbre `1 + (2 * 3)`. La grammaire est non ambiguë.
 
-:::tip Règle générale
-Plus un opérateur est prioritaire, plus son non-terminal apparaît **bas** dans
-la hiérarchie de la grammaire (plus proche des terminaux).
-:::
+<div style={{textAlign: 'center'}}>
+  <img src="/2026E-IFT2035/img/syntaxe/ast-non-ambigu.svg" alt="Arbre de dérivation non ambigu de 1 + 2 * 3" />
+  <p><em>Unique dérivation de <code>1 + 2 * 3</code> avec la grammaire non ambiguë</em></p>
+</div>

@@ -102,12 +102,6 @@ const config = {
         },
         items: [
           {
-            type: 'docSidebar',
-            sidebarId: 'courseSidebar',
-            position: 'left',
-            label: 'Notes de cours',
-          },
-          {
             href: 'https://github.com/archambaultv-prof/2026E-IFT2035/',
             label: 'GitHub',
             position: 'right',

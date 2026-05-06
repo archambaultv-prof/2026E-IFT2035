@@ -96,13 +96,23 @@ l'ordre d'évaluation.
   a + b - c  ≡  (a + b) - c
   ```
 - **Associativité à droite** : on évalue de droite à gauche.
+  En Python, l'opérateur d'exponentiation `**` est associatif à droite.
   ```
   2 ** 3 ** 2  ≡  2 ** (3 ** 2) = 2 ** 9 = 512
   ```
   (et non `(2 ** 3) ** 2 = 64`)
 
-En Python, l'opérateur d'exponentiation `**` est associatif à droite, tandis
-que la plupart des opérateurs arithmétiques sont associatifs à gauche.
+- **Non-associatif** : l'opérateur ne peut pas être enchaîné sans parenthèses
+  explicites. Tenter de le faire est soit une erreur de syntaxe, soit une erreur
+  de typage selon le langage.
+
+  Par exemple, dans des langages comme Haskell ou OCaml, l'opérateur de
+  comparaison `<` est non-associatif : l'expression `1 < 2 < 3` est invalide et
+  le compilateur la rejette. Il faut écrire explicitement `(1 < 2) && (2 < 3)`.
+
+  En Python, les comparaisons sont un cas particulier : `1 < 2 < 3` est valide,
+  mais c'est une syntaxe spéciale de *chaînage* qui signifie `1 < 2 && 2 < 3`,
+  et non une association classique à gauche ou à droite.
 
 ## Comparaison
 
