@@ -6,65 +6,311 @@ description: Polymorphisme paramétrique et classes de types en Haskell.
 
 # Polymorphisme et classes de types
 
-## Polymorphisme
+## Le problème du code dupliqué
 
-Certaines fonctions fonctionnent pour **n'importe quel type**. En Haskell, cela
-s'exprime avec des **variables de type** (par convention : `a`, `b`, `c`…).
+Considérons deux fonctions qui calculent la longueur d'une liste :
 
 ```haskell
--- Retourne le premier élément d'une liste
--- (fonctionne pour [Int], [Bool], [String], etc.)
-premier :: [a] -> a
-premier (x : _) = x
+longueurInt :: [Int] -> Int
+longueurInt []       = 0
+longueurInt (_ : xs) = 1 + longueurInt xs
 
--- Retourne la longueur d'une liste
+longueurBool :: [Bool] -> Int
+longueurBool []       = 0
+longueurBool (_ : xs) = 1 + longueurBool xs
+```
+
+Ces deux fonctions sont **identiques** — seul le type de l'élément change.
+Si on veut la même chose pour `[String]`, `[Double]`, etc., il faudrait réécrire
+la même logique à chaque fois. C'est exactement le problème que résout le
+**polymorphisme**.
+
+## Polymorphisme paramétrique
+
+Le **polymorphisme paramétrique** permet d'écrire une seule fonction qui
+fonctionne pour **tout type** `a`, sans restriction. En Haskell, cela
+s'exprime avec des **variables de type** (par convention : `a`, `b`, `c`…) :
+
+```haskell
 longueur :: [a] -> Int
-longueur [] = 0
+longueur []       = 0
 longueur (_ : xs) = 1 + longueur xs
 ```
 
-La signature `[a] -> a` se lit : « pour tout type `a`, cette fonction prend
-une liste de `a` et retourne un `a` ».
+La signature `[a] -> Int` se lit : « pour *tout* type `a`, cette fonction
+prend une liste de `a` et retourne un `Int` ».
 
-Cette forme de polymorphisme s'appelle **polymorphisme paramétrique** (ou
-*generics* dans d'autres langages).
+```haskell
+ghci> longueur [1, 2, 3]        -- [Int]
+3
+ghci> longueur [True, False]    -- [Bool]
+2
+ghci> longueur ["a", "b", "c"]  -- [String]
+3
+```
 
-## Classes de types
+C'est ce qu'on appelle les **génériques** (*generics*) dans d'autres langages
+comme Java (`List<T>`) ou Python (annotations `list[T]`).
 
-Haskell dispose d'un système de **classes de types** (*type classes*) qui
-permettent de définir des comportements partagés entre plusieurs types. C'est
-similaire aux interfaces en Java.
+## Ce qu'une fonction polymorphe ne peut PAS faire
+
+Voici la contrainte fondamentale du polymorphisme paramétrique : une fonction
+dont le type contient une variable `a` ne peut rien savoir
+sur ce `a`. Par exemple, elle ne peut pas :
+
+- Comparer deux valeurs de type `a`
+- Afficher une valeur de type `a`
+- Faire de l'arithmétique sur `a`
+
+Par exemple, la fonction `premier :: [a] -> a` retourne simplement le premier
+élément. Elle ne le regarde pas, ne le modifie pas — elle ne *peut* pas, car
+elle ne sait pas ce que `a` représente.
+
+```haskell
+premier :: [a] -> a
+premier (x : _) = x
+-- On ne peut pas faire : x + 1, x == 0, show x, etc.
+```
+
+Cette restriction est en réalité une **garantie** : si une fonction a le type
+`[a] -> [a]`, on sait *à la lecture de sa signature* qu'elle ne peut que
+réarranger, dupliquer ou supprimer des éléments — jamais en créer de nouveaux
+ni les inspecter.
+
+:::tip[Comparaison avec Python]
+En Python, une fonction qui reçoit un paramètre peut en faire n'importe quoi
+au moment de l'exécution. En Haskell, le type dit explicitement ce qu'on peut
+ou ne peut pas faire avec un argument.
+
+```python
+def premier(lst):
+    x = lst[0]
+    print(x)      # Python le permet — rien ne l'interdit
+    return x + 1  # Python le permet — mais ça plantera à l'exécution si x n'est pas un nombre
+```
+
+```haskell
+premier :: [a] -> a
+premier (x : _) = x
+-- show x    -- erreur de compilation : on ne sait pas si a supporte Show
+-- x + 1     -- erreur de compilation : on ne sait pas si a supporte Num
+```
+:::
+
+## Classes de types — ajouter des contraintes
+
+Quand on veut qu'une fonction polymorphe puisse *faire quelque chose* avec ses
+arguments de type `a`, on doit le déclarer explicitement via une **classe de
+types** (*type class*). Une classe de types est un ensemble de types qui
+partagent une même interface.
 
 ```haskell
 ghci> :type (+)
 (+) :: Num a => a -> a -> a
 ```
 
-La contrainte `Num a =>` signifie : « `a` doit être un type numérique ». Les
-types `Int`, `Integer`, `Double` sont tous dans la classe `Num`.
+La contrainte `Num a =>` signifie : « `a` doit être un type numérique ». Le
+compilateur garantit que `a` supporte l'addition — et interdit d'appeler `(+)`
+sur un type qui ne le supporte pas (comme `Bool` ou `Forme`).
 
-| Classe | Signification | Types membres typiques |
-|---|---|---|
-| `Num` | Nombres | `Int`, `Integer`, `Double` |
-| `Eq` | Comparaison par égalité (`==`, `/=`) | Presque tous |
-| `Ord` | Comparaison par ordre (`<`, `>`, …) | `Int`, `Char`, … |
-| `Show` | Peut être converti en `String` | Presque tous |
-| `Read` | Peut être parsé depuis une `String` | Presque tous |
+Voici les classes de types les plus courantes :
+
+| Classe | Opérations disponibles | Types membres typiques |
+|--------|------------------------|------------------------|
+| `Num`  | `+`, `-`, `*`          | `Int`, `Integer`, `Double` |
+| `Eq`   | `==`, `/=`             | Presque tous |
+| `Ord`  | `<`, `>`, `<=`, `>=`   | `Int`, `Char`, `String`… |
+| `Show` | `show` (convertir en `String`) | Presque tous |
+| `Read` | `read` (parser depuis une `String`) | Presque tous |
+
+### Exemple — comparer deux valeurs
+
+Sans contrainte, on ne peut pas comparer. Avec `Eq`, on le peut :
 
 ```haskell
-maximumDe :: Ord a => a -> a -> a
-maximumDe x y = if x >= y then x else y
+-- Sans contrainte : erreur de compilation
+-- estEgal :: a -> a -> Bool
+-- estEgal x y = x == y   -- interdit : on ne sait pas si a supporte ==
 
--- Fonctionne avec Int, Double, Char, String, etc.
-ghci> maximumDe 3 7
+-- Avec contrainte Eq :
+estEgal :: Eq a => a -> a -> Bool
+estEgal x y = x == y
+```
+
+```haskell
+ghci> estEgal 3 3
+True
+ghci> estEgal "bonjour" "monde"
+False
+```
+
+### Exemple — trouver le maximum
+
+```haskell
+maxDe :: Ord a => a -> a -> a
+maxDe x y = if x >= y then x else y
+
+ghci> maxDe 3 7
 7
-ghci> maximumDe 'a' 'z'
+ghci> maxDe 'a' 'z'
 'z'
+ghci> maxDe "chat" "chien"
+"chien"
+```
+
+`Ord a` garantit que `>=` est disponible pour `a`. La même fonction fonctionne
+pour les entiers, les caractères, les chaînes — tout type ordonné.
+
+### Plusieurs contraintes
+
+On peut combiner plusieurs contraintes :
+
+```haskell
+afficherMax :: (Ord a, Show a) => a -> a -> String
+afficherMax x y = "Le maximum est : " ++ show (maxDe x y)
+
+ghci> afficherMax 10 42
+"Le maximum est : 42"
+```
+
+`Ord a` permet de comparer, `Show a` permet de convertir en `String` avec
+`show`. Sans ces deux contraintes, le corps de la fonction ne compilerait pas.
+
+## Déclarer ses propres classes de types
+
+On peut définir ses propres classes de types avec le mot-clé `class`. On déclare
+le nom de la classe, la variable de type concernée, et les **signatures** des
+opérations que tout membre de cette classe devra implémenter.
+
+```haskell
+class FormeGeometrique a where
+  aire      :: a -> Double
+  perimetre :: a -> Double
+```
+
+Cela dit : « un type `a` est une `FormeGeometrique` s'il fournit les fonctions
+`aire` et `perimetre` ».
+
+### Déclarer des instances
+
+Pour rattacher un type à une classe, on utilise `instance` et on fournit
+l'implémentation de chaque opération. Rappelons la définition de `Forme` :
+
+```haskell
+data Forme = Cercle Double           -- rayon
+           | Rectangle Double Double -- largeur, hauteur
+```
+
+On peut maintenant déclarer que `Forme` est une `FormeGeometrique` :
+
+```haskell
+instance FormeGeometrique Forme where
+  aire (Cercle r)        = pi * r * r
+  aire (Rectangle l h)   = l * h
+
+  perimetre (Cercle r)       = 2 * pi * r
+  perimetre (Rectangle l h)  = 2 * (l + h)
 ```
 
 :::note
-Les classes de types sont bien plus puissantes que les interfaces Java. Elles
-permettent notamment l'inférence automatique et l'implémentation *après coup*
-pour des types existants. Nous n'entrerons pas dans leurs détails avancés dans
-ce cours.
+`pi` est défini dans le Prelude de Haskell comme méthode de la classe `Floating`.
+`Double` étant membre de `Floating`, `pi :: Double` est disponible sans aucun
+import.
+:::
+
+```haskell
+ghci> aire (Cercle 3.0)
+28.274333882308138
+ghci> perimetre (Cercle 3.0)
+18.84955592153876
+ghci> aire (Rectangle 4.0 5.0)
+20.0
+ghci> perimetre (Rectangle 4.0 5.0)
+18.0
+```
+
+On peut aussi écrire des instances pour d'autres types. Par exemple, un cercle
+représenté différemment par son diamètre :
+
+```haskell
+data Disque = Disque Double  -- diamètre
+
+instance FormeGeometrique Disque where
+  aire (Disque d)      = pi * (d / 2) * (d / 2)
+  perimetre (Disque d) = pi * d
+```
+
+### Utiliser la classe comme contrainte
+
+Une fois la classe déclarée, on peut l'utiliser comme contrainte dans les
+signatures de fonctions polymorphes :
+
+```haskell
+estPlusGrande :: FormeGeometrique a => a -> a -> Bool
+estPlusGrande f1 f2 = aire f1 > aire f2
+
+resume :: FormeGeometrique a => a -> String
+resume f = "aire = " ++ show (aire f) ++
+           ", périmètre = " ++ show (perimetre f)
+```
+
+```haskell
+ghci> estPlusGrande (Cercle 3.0) (Rectangle 4.0 5.0)
+True
+ghci> resume (Rectangle 4.0 5.0)
+"aire = 20.0, périmètre = 18.0"
+```
+
+Ces fonctions fonctionnent pour `Forme`, `Disque`, ou tout autre type déclaré
+`FormeGeometrique`. Le compilateur les refuse sur un type sans instance.
+
+### Valeurs par défaut
+
+Une classe peut fournir des **implémentations par défaut** pour certaines
+opérations. Une instance peut les garder telles quelles ou les redéfinir :
+
+```haskell
+class FormeGeometrique a where
+  aire      :: a -> Double
+  perimetre :: a -> Double
+  resume    :: a -> String
+  resume f = "aire = " ++ show (aire f) ++
+             ", périmètre = " ++ show (perimetre f)
+```
+
+Toute instance qui définit `aire` et `perimetre` obtient `resume` gratuitement,
+sans avoir à le réécrire.
+
+:::tip[Comparaison avec Python]
+En Python, on obtiendrait quelque chose de similaire avec une classe abstraite :
+
+```python
+from abc import ABC, abstractmethod
+import math
+
+class FormeGeometrique(ABC):
+    @abstractmethod
+    def aire(self) -> float:
+        pass
+
+    @abstractmethod
+    def perimetre(self) -> float:
+        pass
+
+    def resume(self) -> str:
+        return f"aire = {self.aire()}, périmètre = {self.perimetre()}"
+
+class Cercle(FormeGeometrique):
+    def __init__(self, rayon: float):
+        self.rayon = rayon
+    def aire(self):
+        return math.pi * self.rayon ** 2
+    def perimetre(self):
+        return 2 * math.pi * self.rayon
+```
+
+La différence principale : en Python l'héritage lie la classe au type dès la
+définition. En Haskell, l'instance est **séparée** de la définition du type —
+on peut ajouter une instance pour un type existant, même celui d'une
+bibliothèque tierce.
 :::

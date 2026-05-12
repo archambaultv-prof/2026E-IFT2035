@@ -60,11 +60,15 @@ et _     _     = False
 ### Sur un type personnalisé
 
 ```haskell
+data Jour = Lundi | Mardi | Mercredi | Jeudi | Vendredi | Samedi | Dimanche
+
 -- Est-ce un jour de fin de semaine ?
 estWeekend :: Jour -> Bool
 estWeekend Samedi   = True
 estWeekend Dimanche = True
 estWeekend _        = False
+
+data Forme = Cercle Double | Rectangle Double Double
 
 -- Aire d'une forme
 aire :: Forme -> Double
@@ -86,17 +90,41 @@ ghci> aire (Rectangle 4.0 5.0)
 Notez que le filtrage **déstructure** le constructeur : `(Cercle r)` lie la
 variable `r` au rayon qui a été passé à `Cercle`.
 
-### Sur les listes
+## Les listes — un type algébrique récursif
 
-En Haskell, une liste est soit :
-- La **liste vide** : `[]`
-- Un élément (la **tête**) suivi d'une liste (la **queue**) : `(x : xs)`
+La liste est l'un des types algébriques les plus importants en Haskell. Elle
+est définie (conceptuellement) ainsi :
 
-:::tip[Syntaxe Haskell — listes]
 ```haskell
-[]          -- liste vide
-[1, 2, 3]   -- sucre syntaxique pour 1 : 2 : 3 : []
-(x : xs)    -- tête x, queue xs
+data [a] = []       -- liste vide
+         | a : [a]  -- tête de type a, suivie d'une liste de a
+```
+
+- `[]` est le constructeur de la liste vide.
+- `(:)` (prononcé *cons*) est le constructeur qui ajoute un élément en tête.
+
+C'est un type **récursif** : la définition de `[a]` fait référence à `[a]`
+elle-même. Cela permet de représenter des listes de n'importe quelle longueur.
+
+```haskell
+ghci> 1 : 2 : 3 : []
+[1, 2, 3]
+
+ghci> :type (:)
+(:) :: a -> [a] -> [a]
+```
+
+La notation `[1, 2, 3]` est un raccourci syntaxique pour `1 : 2 : 3 : []`.
+
+### Filtrage sur les listes
+
+Parce que `[a]` est un type algébrique, on peut filtrer sur ses constructeurs :
+une liste est soit vide (`[]`), soit formée d'une tête et d'une queue (`x : xs`).
+
+:::tip[Syntaxe Haskell — motifs de listes]
+```haskell
+[]               -- liste vide
+(x : xs)         -- tête x, queue xs
 (a : b : reste)  -- deux premiers éléments, puis le reste
 ```
 
@@ -151,6 +179,31 @@ ghci> description [42]
 "un seul élément"
 ghci> description [1, 2, 3, 4]
 "trois éléments ou plus"
+```
+
+On peut aussi utiliser `case` pour inspecter un type algébrique à l'intérieur
+d'une expression plus large. Par exemple, pour calculer le périmètre d'une
+`Forme` sans définir une fonction séparée :
+
+```haskell
+data Forme = Cercle Double | Rectangle Double Double
+
+decrireForme :: Forme -> String
+decrireForme f =
+  let nom = case f of
+              Cercle _      -> "cercle"
+              Rectangle _ _ -> "rectangle"
+      aire = case f of
+               Cercle r      -> pi * r * r
+               Rectangle l h -> l * h
+  in "C'est un " ++ nom ++ " d'aire " ++ show aire
+```
+
+```haskell
+ghci> decrireForme (Cercle 3.0)
+"C'est un cercle d'aire 28.274333882308138"
+ghci> decrireForme (Rectangle 4.0 5.0)
+"C'est un rectangle d'aire 20.0"
 ```
 
 ## Les gardes (*guards*)

@@ -106,3 +106,74 @@ La notation `A -> B` désigne le type d'une fonction qui prend un argument de
 type `A` et retourne une valeur de type `B`. Pour plusieurs arguments :
 `A -> B -> C` (une fonction qui prend un `A`, puis un `B`, et retourne un `C`).
 
+## Les garanties du système de types
+
+Pourquoi se soucier des types ? Parce qu'un bon système de types offre des
+**garanties mathématiques** sur le comportement des programmes. Les deux
+propriétés fondamentales sont la **progression** et la **préservation** — on
+les regroupe souvent sous l'expression *type safety*.
+
+### Préservation (*preservation*)
+
+> Si une expression `e` a le type `T`, et que `e` se réduit en `e'`, alors
+> `e'` a aussi le type `T`.
+
+En d'autres termes : **les types ne changent pas pendant l'évaluation**. Si
+une expression est de type `Int`, elle restera de type `Int` à chaque étape de
+calcul jusqu'à sa valeur finale. Le type calculé à la compilation reste valide
+à l'exécution.
+
+```haskell
+double :: Int -> Int
+double x = x * 2
+
+-- double 3
+-- → 3 * 2     (type : Int)
+-- → 6         (type : Int)
+```
+
+À chaque étape, on a bien un `Int`. Jamais le résultat intermédiaire ne devient
+un `String` ou un `Bool` par surprise.
+
+### Progression (*progress*)
+
+> Si une expression `e` a un type, alors soit `e` est déjà une valeur, soit
+> elle peut encore se réduire.
+
+Autrement dit : **un programme bien typé ne se bloque pas**. Il ne peut pas
+atteindre un état incohérent du type « j'essaie d'additionner un entier et une
+chaîne » — ce cas est éliminé à la compilation.
+
+```haskell
+-- Ceci ne compile pas — aucun état bloquant possible à l'exécution :
+-- "bonjour" + 42   -- erreur : Num String n'existe pas
+```
+
+### Ce que cela signifie concrètement
+
+Ces deux propriétés ensemble donnent la garantie informelle : **« well-typed
+programs don't go wrong »** (Robin Milner, 1978). Un programme Haskell qui
+compile ne lèvera jamais d'erreur de type à l'exécution — contrairement à
+Python où un `TypeError` n'apparaît qu'au moment où la ligne fautive est
+exécutée.
+
+:::tip[Comparaison avec Python]
+```python
+def ajouter(x, y):
+    return x + y
+
+ajouter("bonjour", 42)  # TypeError à l'exécution
+```
+
+```haskell
+ajouter :: Int -> Int -> Int
+ajouter x y = x + y
+
+-- ajouter "bonjour" 42  -- erreur de compilation, programme refusé
+```
+
+En Python, l'erreur n'est découverte que si ce chemin de code est
+effectivement emprunté (peut-être jamais en test, mais en production). En
+Haskell, le compilateur refuse le programme avant qu'il ne tourne.
+:::
+

@@ -1,48 +1,116 @@
 ---
 sidebar_position: 5
 sidebar_label: Types algébriques
-description: Déclarer des types avec data, constructeurs et types polymorphes.
+description: Déclarer des types avec data, constructeurs, types produits et types sommes.
 ---
 
 # Types algébriques
 
-## Déclarer un type avec `data`
+Les **types algébriques de données** (*algebraic data types*, ou ADT) sont la
+façon dont Haskell permet de définir de nouveaux types. Il en existe deux
+variétés fondamentales : les **types produits** et les **types sommes**. On les
+combine librement pour construire des structures de données riches.
 
-En Haskell, on déclare un nouveau type avec le mot-clé `data` :
+## Types produits — regrouper plusieurs valeurs
 
-```
-data NomDuType = Constructeur1 | Constructeur2 | ...
-```
-
-Chaque **constructeur** est une façon de construire une valeur de ce type.
-Par exemple, `Bool` est défini ainsi dans la bibliothèque standard :
-
-```haskell
-data Bool = False | True
-```
-
-`False` et `True` sont deux constructeurs sans argument. Un `Bool` est soit
-`False`, soit `True` — rien d'autre.
-
-On peut définir ses propres types de la même façon :
+Un **type produit** regroupe plusieurs champs en une seule valeur — exactement
+comme les attributs d'une classe.
 
 ```haskell
--- Les jours de la semaine
+data Point = Point Double Double
+```
+
+La valeur `Point 3.0 4.0` contient *toujours* deux `Double` : une coordonnée x
+**et** une coordonnée y. Les deux champs sont présents simultanément.
+
+:::tip[Comparaison avec Python]
+En Python, on modéliserait cela avec une classe :
+
+```python
+class Point:
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+p = Point(3.0, 4.0)
+```
+
+En Haskell, pas besoin de méthode `__init__` : le constructeur `Point` joue ce
+rôle directement.
+
+```haskell
+p :: Point
+p = Point 3.0 4.0
+```
+:::
+
+Autres exemples de types produits :
+
+```haskell
+data Personne  = Personne String Int          -- nom ET âge
+data Rectangle = Rectangle Double Double      -- largeur ET hauteur
+data Couleur3  = Couleur3 Int Int Int         -- rouge ET vert ET bleu
+```
+
+On dit « produit » parce que l'ensemble des valeurs possibles est le *produit
+cartésien* des ensembles de chaque champ. Un `Rectangle` peut avoir n'importe
+quelle largeur **combinée** à n'importe quelle hauteur.
+
+## Types sommes — choisir entre plusieurs formes
+
+Un **type somme** (*sum type* ou *union discriminante*) exprime qu'une valeur
+peut prendre **l'une ou l'autre** d'un ensemble de formes. C'est là que Haskell
+(et la programmation fonctionnelle en général) se distingue nettement de Python
+ou Java.
+
+```haskell
 data Jour = Lundi | Mardi | Mercredi | Jeudi | Vendredi | Samedi | Dimanche
-
--- Les saisons
-data Saison = Printemps | Été | Automne | Hiver
 ```
 
-## Constructeurs avec arguments
+Un `Jour` est *soit* `Lundi`, *soit* `Mardi`, *soit* … — jamais plusieurs à la
+fois, et jamais rien d'autre.
 
-Les constructeurs peuvent aussi **prendre des arguments** :
+:::tip[Comparaison avec Python]
+Python n'a pas de type somme natif. La façon la plus proche serait une
+énumération :
+
+```python
+from enum import Enum
+
+class Jour(Enum):
+    LUNDI    = 1
+    MARDI    = 2
+    MERCREDI = 3
+    JEUDI    = 4
+    VENDREDI = 5
+    SAMEDI   = 6
+    DIMANCHE = 7
+```
+
+Mais les énumérations Python ne peuvent pas porter des données différentes
+selon le cas (voir la section suivante). Les types sommes de Haskell sont
+beaucoup plus expressifs.
+:::
+
+On dit « somme » parce que le nombre total de valeurs possibles est la *somme*
+des valeurs de chaque alternative.
+
+## Types sommes avec données — le vrai pouvoir
+
+Chaque alternative (constructeur) d'un type somme peut porter ses **propres
+données**, et chaque alternative peut avoir un nombre de champs différent.
 
 ```haskell
 -- Une forme géométrique : soit un cercle (avec son rayon),
 -- soit un rectangle (avec sa largeur et sa hauteur)
 data Forme = Cercle Double | Rectangle Double Double
 ```
+
+- `Cercle 5.0` — un cercle porte *un* `Double` (son rayon).
+- `Rectangle 3.0 4.0` — un rectangle porte *deux* `Double`.
+
+Ces deux constructeurs font partie du **même type** `Forme`, mais ils ont des
+structures internes différentes.
 
 ```haskell
 ghci> :type Cercle
@@ -58,25 +126,58 @@ ghci> Rectangle 3.0 4.0
 Rectangle 3.0 4.0
 ```
 
-Un constructeur avec arguments se comporte comme une **fonction** : on lui
-passe ses arguments et on obtient une valeur du type déclaré.
+:::tip[Comparaison avec Python]
+En Python, on simulerait cela avec une hiérarchie de classes et de l'héritage :
 
-:::info[Exemple]
-Un type pour représenter le résultat d'une division (qui peut échouer si le
-diviseur est zéro) :
+```python
+class Forme:
+    pass
+
+class Cercle(Forme):
+    def __init__(self, rayon: float):
+        self.rayon = rayon
+
+class Rectangle(Forme):
+    def __init__(self, largeur: float, hauteur: float):
+        self.largeur = largeur
+        self.hauteur = hauteur
+```
+
+En Haskell, tout cela s'écrit en **une ligne**. Et contrairement à Python, le
+compilateur *garantit* qu'on a traité tous les cas possibles lors du filtrage
+par motifs.
+:::
+
+
+## Types algébriques — produit ET somme ensemble
+
+La plupart des types intéressants combinent les deux. Chaque constructeur d'un
+type somme peut lui-même être un type produit (porter plusieurs champs).
 
 ```haskell
-data RésultatDiv = Succès Double | ErreurDivParZéro
-
-diviser :: Double -> Double -> RésultatDiv
-diviser _ 0 = ErreurDivParZéro
-diviser x y = Succès (x / y)
-
-ghci> diviser 10 2
-Succès 5.0
-ghci> diviser 10 0
-ErreurDivParZéro
+data Forme = Cercle Double              -- rayon
+           | Rectangle Double Double    -- largeur, hauteur
+           | Triangle Double Double     -- base, hauteur
 ```
+
+C'est à la fois une somme (trois alternatives) et, pour chaque alternative, un
+produit (plusieurs champs).
+
+:::tip[Syntaxe Haskell — `data`]
+La déclaration `data` crée à la fois le **type** et ses **constructeurs**.
+Les constructeurs commencent toujours par une **majuscule** ; les variables de
+type commencent par une **minuscule**.
+
+```haskell
+data Couleur    = Rouge | Vert | Bleu         -- somme pure (énumération)
+data Point      = Point Double Double          -- produit pur (un seul constructeur)
+data Maybe a    = Nothing | Just a             -- somme : absence OU présence
+data Either a b = Left a | Right b             -- somme : deux alternatives typées
+```
+
+`Either a b` est utile pour représenter un résultat qui peut être de deux
+natures différentes — par exemple une valeur (`Right`) ou un message d'erreur
+(`Left`).
 :::
 
 ## Types polymorphes
@@ -106,48 +207,6 @@ ghci> Just "bonjour"
 Just "bonjour"
 ```
 
-`Maybe` est le type standard de Haskell pour remplacer les valeurs `null` ou
-les exceptions dans les cas simples d'absence de valeur.
-
-:::tip[Syntaxe Haskell — `data`]
-La déclaration `data` crée à la fois le **type** et ses **constructeurs**.
-Les constructeurs commencent toujours par une **majuscule** ; les variables de
-type commencent par une **minuscule**.
-
-```haskell
-data Couleur  = Rouge | Vert | Bleu        -- type énumération
-data Point    = Point Double Double         -- un seul constructeur avec champs
-data Maybe a  = Nothing | Just a           -- type polymorphe
-data Either a b = Left a | Right b         -- deux alternatives typées
-```
-
-`Either a b` est utile pour représenter un résultat qui peut être de deux
-natures différentes — par exemple une valeur (`Right`) ou un message d'erreur
-(`Left`).
-:::
-
-## Les listes — un type algébrique récursif
-
-La liste en Haskell est elle-même un type algébrique, défini (conceptuellement)
-ainsi :
-
-```haskell
-data [a] = []       -- liste vide
-         | a : [a]  -- tête de type a, suivie d'une liste de a
-```
-
-- `[]` est le constructeur de la liste vide.
-- `(:)` (prononcé *cons*) est le constructeur qui ajoute un élément en tête.
-
-C'est un type **récursif** : la définition de `[a]` fait référence à `[a]`
-elle-même. Cela permet de représenter des listes de n'importe quelle longueur.
-
-```haskell
-ghci> 1 : 2 : 3 : []
-[1, 2, 3]
-
-ghci> :type (:)
-(:) :: a -> [a] -> [a]
-```
-
-La notation `[1, 2, 3]` est un raccourci syntaxique pour `1 : 2 : 3 : []`.
+`Maybe` est le type standard de Haskell pour remplacer les valeurs `None` de
+Python ou les références nulles de Java, mais de façon *sûre* : le compilateur
+oblige le code appelant à vérifier si la valeur est présente ou non.

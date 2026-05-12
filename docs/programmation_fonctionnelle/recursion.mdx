@@ -21,7 +21,7 @@ def somme(n):
 ```
 
 Ce code modifie l'état d'une variable (`total`, `i`). Haskell n'a pas de
-boucles et n'a pas de variables mutables. Comment fait-il alors ?
+boucles et n'a pas de variables mutables. Comment fait-on alors ?
 
 ## La récursion
 
@@ -68,7 +68,7 @@ ghci> somme 4
 
 ## Factorielle
 
-La factorielle est l'exemple classique de récursion :
+La factorielle est un autre exemple classique de récursion :
 
 ```math
 n! = \begin{cases}
@@ -184,48 +184,220 @@ ghci> map fib [0..10]
 Cette implémentation naïve de Fibonacci est **très lente** : elle recalcule les
 mêmes valeurs un nombre exponentiel de fois. `fib 40` peut prendre plusieurs
 secondes. Des techniques comme la mémoïsation ou la récursion terminale règlent
-ce problème, mais elles dépassent le cadre de cette introduction.
+ce problème.
 :::
+
+## Récursion et boucles — équivalences
+
+La récursion et les boucles sont deux façons d'exprimer la même chose. On peut
+toujours convertir l'une en l'autre.
+
+### Convertir une boucle `for` en récursion
+
+Une boucle `for` itère sur un intervalle. La façon la plus naturelle d'écrire
+la somme en Python est de partir de 1 et monter jusqu'à `n` :
+
+```python
+# Python — boucle for (ordre naturel)
+def somme(n):
+    total = 0
+    for i in range(1, n + 1):
+        total = total + i
+    return total
+```
+
+Cette boucle monte de 1 vers `n`. La récursion, elle, descend naturellement
+vers le cas de base. Il faut donc **voir le problème dans l'autre sens** : au
+lieu de partir de 1 et monter, on part de `n` et on descend vers 0.
+
+```python
+# Python — même calcul, sens inversé
+def somme(n):
+    total = 0
+    for i in range(n, 0, -1):  # i prend les valeurs n, n-1, ..., 1
+        total = total + i
+    return total
+```
+
+La boucle s'arrête quand `i` atteint 0. À chaque tour, on ajoute `i` au total
+et on passe à `i - 1`. En récursion :
+
+```haskell
+-- Haskell — récursion
+somme :: Int -> Int
+somme 0 = 0                    -- condition d'arrêt : i == 0
+somme n = n + somme (n - 1)    -- ajouter n, puis passer à n-1
+```
+
+Le paramètre `n` joue le rôle du compteur `i`. La valeur `0` est le cas de
+base (la boucle s'arrête). L'expression `n + somme (n - 1)` correspond à
+`total = total + i` suivi du passage à `i - 1`.
+
+### Convertir une boucle `while` en récursion
+
+Une boucle `while` répète tant qu'une condition est vraie. L'équivalent
+récursif vérifie la condition comme garde ou motif.
+
+```python
+# Python — boucle while
+def collatz(n):
+    steps = 0
+    while n != 1:
+        if n % 2 == 0:
+            n = n // 2
+        else:
+            n = 3 * n + 1
+        steps = steps + 1
+    return steps
+```
+
+```haskell
+-- Haskell — récursion
+collatz :: Int -> Int
+collatz 1 = 0
+collatz n
+  | even n    = 1 + collatz (n `div` 2)
+  | otherwise = 1 + collatz (3 * n + 1)
+```
+
+La condition `while n != 1` devient le cas de base `collatz 1 = 0`. Le corps
+de la boucle devient le cas récursif.
+
+### Convertir une récursion en boucle `while`
+
+Dans le cas **général**, convertir une récursion en boucle `while` nécessite
+une **pile explicite** pour mémoriser le *travail restant à faire* après chaque
+appel — pas seulement une valeur, mais le **calcul en attente**.
+
+Prenons `concatener`, qui reconstruit une liste élément par élément :
+
+```haskell
+concatener :: [a] -> [a] -> [a]
+concatener []       ys = ys
+concatener (x : xs) ys = x : concatener xs ys
+```
+
+Trace d'évaluation de `concatener [1, 2, 3] []` :
+
+```
+concatener [1,2,3] []
+→ 1 : concatener [2,3] []     -- calcul en attente : « préfixer par 1 »
+→ 1 : (2 : concatener [3] []) -- calcul en attente : « préfixer par 2 »
+→ 1 : (2 : (3 : concatener [] []))
+→ 1 : (2 : (3 : []))
+→ [1, 2, 3]
+```
+
+À chaque étape, le programme retient un calcul différent : « préfixer le
+résultat par `x` ». Ce n'est pas juste une valeur stockée — c'est une
+**opération paramétrée** (`[x] + résultat`) qui dépend de l'élément courant.
+La pile d'appels stocke ces opérations en attente.
+
+Pour convertir en `while`, on simule cette pile explicitement :
+
+```python
+def concatener(xs, ys):
+    pile = []
+    while xs:
+        pile.append(xs[0])   # on retient l'opération « préfixer par xs[0] »
+        xs = xs[1:]
+    # on dépile en appliquant chaque opération en attente
+    resultat = ys
+    while pile:
+        x = pile.pop()
+        resultat = [x] + resultat  # appliquer l'opération en attente
+    return resultat
+```
+
+La pile ne stocke pas un simple compteur : elle stocke les éléments `x` dont
+on a encore besoin pour reconstruire le résultat. Chaque `pile.pop()` correspond
+à un retour d'appel récursif.
+
 
 ## La récursion terminale (*tail recursion*)
 
-Un appel récursif est **terminal** (*tail call*) quand il est la **dernière**
-opération de la fonction — son résultat est immédiatement retourné sans
-traitement supplémentaire.
+### Pourquoi la pile d'appels pose problème
+
+Chaque appel de fonction consomme de la mémoire sur la **pile d'appels**
+(*call stack*) : le programme doit retenir où en est le calcul pour pouvoir
+reprendre après le retour de l'appel récursif.
+
+Avec `somme` non terminale :
+
+```
+somme 4
+→ 4 + somme 3          -- on retient « ajouter 4 au résultat »
+→ 4 + (3 + somme 2)    -- on retient « ajouter 3 au résultat »
+→ 4 + (3 + (2 + somme 1))
+→ 4 + (3 + (2 + (1 + somme 0)))
+→ 4 + (3 + (2 + (1 + 0)))
+→ 10
+```
+
+Pour `somme 1000000`, le programme empile un million de cadres. Si la pile
+déborde, on obtient un **stack overflow**.
+
+### L'appel terminal supprime le besoin de pile
+
+Un appel est **terminal** quand c'est la *dernière* opération — il n'y a rien
+à faire après le retour. Le résultat de l'appel récursif est *directement* le
+résultat de la fonction courante.
 
 ```haskell
--- Récursion NON terminale (il faut attendre la récursion pour faire + n)
+-- NON terminal : il faut attendre le résultat pour faire (+ n)
 somme n = n + somme (n - 1)
+--        ^^^^^^^^^^^^^^^^^^^^ l'addition est faite APRÈS le retour
 
--- Récursion TERMINALE (accumulateur)
-sommeAcc :: Int -> Int -> Int
+-- TERMINAL : l'appel récursif est la dernière chose
 sommeAcc 0 acc = acc
 sommeAcc n acc = sommeAcc (n - 1) (acc + n)
+--               ^^^^^^^^^^^^^^^^^^^^^^^^^^^ rien à faire après
+```
 
+Avec `somme` non terminale, le programme doit retenir toutes les additions
+pendantes — il a besoin d'une pile :
+
+```
+somme 4
+→ 4 + somme 3          -- retenir « + 4 »
+→ 4 + (3 + somme 2)    -- retenir « + 3 »
+→ 4 + (3 + (2 + somme 1))
+→ 4 + (3 + (2 + (1 + somme 0)))
+→ 4 + (3 + (2 + (1 + 0)))
+→ 10
+```
+
+Avec `sommeAcc` terminale, il n'y a rien à retenir — la pile ne grossit
+jamais :
+
+```
+sommeAcc 4 0
+→ sommeAcc 3 4     -- acc a déjà absorbé le travail
+→ sommeAcc 2 7
+→ sommeAcc 1 9
+→ sommeAcc 0 10
+→ 10
+```
+
+La pile n'a **jamais besoin de grandir** : à chaque étape, le cadre courant
+peut être réutilisé pour l'appel suivant, puisqu'on n'a rien à retenir.
+Le compilateur transforme cela en une simple boucle interne.
+
+```haskell
+-- Interface publique propre : l'accumulateur est caché
 somme' :: Int -> Int
 somme' n = sommeAcc n 0
 ```
 
-La récursion terminale permet au compilateur de l'optimiser en une boucle
-interne efficace (pas de dépassement de pile pour de grandes entrées).
+:::tip[Patron de l'accumulateur]
+Pour rendre une récursion terminale, on ajoute un **accumulateur** comme
+argument supplémentaire. Il joue le rôle de la variable mutable de la boucle
+impérative :
 
-## Récursion vs boucles — comparaison
-
-```python
-# Python impératif
-def puissance(base, exp):
-    résultat = 1
-    for _ in range(exp):
-        résultat *= base
-    return résultat
-```
-
-```haskell
--- Haskell fonctionnel
-puissance :: Int -> Int -> Int
-puissance _    0   = 1
-puissance base exp = base * puissance base (exp - 1)
-```
-
-Les deux calculent $\text{base}^{\text{exp}}$. La version Haskell suit
-directement la définition mathématique $b^n = b \times b^{n-1}$.
+| Boucle impérative | Récursion terminale |
+|---|---|
+| Variable initialisée avant la boucle | Accumulateur passé au premier appel |
+| Mise à jour de la variable | Nouvel accumulateur dans l'appel récursif |
+| Condition d'arrêt | Cas de base |
+| Valeur finale de la variable | Valeur retournée par le cas de base |
+:::
