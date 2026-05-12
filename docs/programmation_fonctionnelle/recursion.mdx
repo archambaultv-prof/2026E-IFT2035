@@ -89,7 +89,7 @@ ghci> factorielle 5
 ghci> factorielle 10
 3628800
 ghci> factorielle 50   -- Integer supporte les grands nombres
-30414093201713378043612608166979581188299763898377856
+30414093201713378043612608166064768844377641568960512000000000000
 ```
 
 :::tip[Utiliser `Integer` vs `Int`]
@@ -176,8 +176,6 @@ fib n = fib (n - 1) + fib (n - 2)
 ```haskell
 ghci> fib 10
 55
-ghci> map fib [0..10]
-[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
 
 :::caution[Complexité exponentielle]
@@ -263,55 +261,54 @@ collatz n
 La condition `while n != 1` devient le cas de base `collatz 1 = 0`. Le corps
 de la boucle devient le cas récursif.
 
-### Convertir une récursion en boucle `while`
+Dans le cas **général** — surtout quand la récursion est multiple — convertir
+en boucle `while` nécessite une **pile explicite** qui stocke les tâches
+entières à accomplir une fois que le sous-problème courant est terminé.
 
-Dans le cas **général**, convertir une récursion en boucle `while` nécessite
-une **pile explicite** pour mémoriser le *travail restant à faire* après chaque
-appel — pas seulement une valeur, mais le **calcul en attente**.
-
-Prenons `concatener`, qui reconstruit une liste élément par élément :
+Les [tours de Hanoï](https://fr.wikipedia.org/wiki/Tours_de_Hano%C3%AF) illustrent bien ce cas : déplacer `n` disques de la
+tige `src` vers `dst` en utilisant `aux` comme intermédiaire. La règle est
+qu'on ne peut jamais poser un grand disque sur un plus petit.
 
 ```haskell
-concatener :: [a] -> [a] -> [a]
-concatener []       ys = ys
-concatener (x : xs) ys = x : concatener xs ys
+-- Retourne la liste des déplacements (source, destination)
+hanoi :: Int -> String -> String -> String -> [(String, String)]
+hanoi 0 _   _   _   = []
+hanoi n src dst aux =
+    hanoi (n-1) src aux dst    -- 1. déplacer n-1 disques de src vers aux
+    ++ [(src, dst)]            -- 2. déplacer le grand disque de src vers dst
+    ++ hanoi (n-1) aux dst src -- 3. déplacer n-1 disques de aux vers dst
 ```
 
-Trace d'évaluation de `concatener [1, 2, 3] []` :
-
-```
-concatener [1,2,3] []
-→ 1 : concatener [2,3] []     -- calcul en attente : « préfixer par 1 »
-→ 1 : (2 : concatener [3] []) -- calcul en attente : « préfixer par 2 »
-→ 1 : (2 : (3 : concatener [] []))
-→ 1 : (2 : (3 : []))
-→ [1, 2, 3]
+```haskell
+ghci> hanoi 3 "A" "C" "B"
+[("A","C"),("A","B"),("C","B"),("A","C"),("B","A"),("B","C"),("A","C")]
 ```
 
-À chaque étape, le programme retient un calcul différent : « préfixer le
-résultat par `x` ». Ce n'est pas juste une valeur stockée — c'est une
-**opération paramétrée** (`[x] + résultat`) qui dépend de l'élément courant.
-La pile d'appels stocke ces opérations en attente.
+À chaque appel récursif, la pile d'appels retient **deux** sous-problèmes en
+attente (les étapes 1 et 3). Il faut retenir, pour chaque niveau, les quatre
+paramètres `(n, src, dst, aux)` du sous-problème restant.
 
-Pour convertir en `while`, on simule cette pile explicitement :
+Pour convertir en boucle `while`, on simule cette pile d'appels explicitement.
+Chaque élément de la pile est un tuple décrivant un sous-problème entier :
 
 ```python
-def concatener(xs, ys):
-    pile = []
-    while xs:
-        pile.append(xs[0])   # on retient l'opération « préfixer par xs[0] »
-        xs = xs[1:]
-    # on dépile en appliquant chaque opération en attente
-    resultat = ys
+def hanoi_iter(n, src, dst, aux):
+    moves = []
+    pile = [(n, src, dst, aux)]   # pile de tâches à accomplir
     while pile:
-        x = pile.pop()
-        resultat = [x] + resultat  # appliquer l'opération en attente
-    return resultat
+        disques, s, d, a = pile.pop()
+        if disques == 1:
+            moves.append((s, d))  # déplacement atomique
+        else:
+            # Pousser les trois sous-tâches en ordre inverse (pile LIFO)
+            pile.append((disques - 1, a, d, s))  # étape 3 — en dernier
+            pile.append((1,           s, d, a))  # étape 2
+            pile.append((disques - 1, s, a, d))  # étape 1 — en premier
+    return moves
 ```
 
-La pile ne stocke pas un simple compteur : elle stocke les éléments `x` dont
-on a encore besoin pour reconstruire le résultat. Chaque `pile.pop()` correspond
-à un retour d'appel récursif.
+La pile contient exactement ce que la pile d'appels du système stockait
+implicitement lors de l'exécution récursive.
 
 
 ## La récursion terminale (*tail recursion*)
@@ -389,15 +386,63 @@ somme' :: Int -> Int
 somme' n = sommeAcc n 0
 ```
 
-:::tip[Patron de l'accumulateur]
-Pour rendre une récursion terminale, on ajoute un **accumulateur** comme
-argument supplémentaire. Il joue le rôle de la variable mutable de la boucle
-impérative :
+### Le patron de l'accumulateur
 
-| Boucle impérative | Récursion terminale |
-|---|---|
-| Variable initialisée avant la boucle | Accumulateur passé au premier appel |
-| Mise à jour de la variable | Nouvel accumulateur dans l'appel récursif |
-| Condition d'arrêt | Cas de base |
-| Valeur finale de la variable | Valeur retournée par le cas de base |
+L'astuce générale pour rendre une récursion terminale est d'ajouter un
+**accumulateur** : un argument supplémentaire qui joue le rôle de variable
+mutable de la boucle impérative. Au lieu d'attendre le retour de l'appel
+récursif pour effectuer le calcul, on fait le calcul *avant* l'appel et on
+passe le résultat intermédiaire en avant.
+
+Ce patron s'applique à la factorielle de la même façon :
+
+```haskell
+-- NON terminale : multiplication après le retour
+factorielle :: Integer -> Integer
+factorielle 0 = 1
+factorielle n = n * factorielle (n - 1)
+
+-- Terminale : l'accumulateur absorbe chaque multiplication
+factorielleAcc :: Integer -> Integer -> Integer
+factorielleAcc 0 acc = acc
+factorielleAcc n acc = factorielleAcc (n - 1) (n * acc)
+
+factorielle' :: Integer -> Integer
+factorielle' n = factorielleAcc n 1   -- accumulateur initialisé à 1 (neutre de ×)
+```
+
+Il fonctionne aussi sur les listes. Inverser une liste est non-terminal dans
+sa version naïve, mais devient trivial avec un accumulateur :
+
+```haskell
+-- NON terminale : la concaténation est faite APRÈS le retour
+inverser :: [a] -> [a]
+inverser []       = []
+inverser (x : xs) = inverser xs ++ [x]
+
+-- Terminale : on préfixe chaque élément dans l'accumulateur au fur et à mesure
+inverserAcc :: [a] -> [a] -> [a]
+inverserAcc []       acc = acc
+inverserAcc (x : xs) acc = inverserAcc xs (x : acc)
+
+inverser' :: [a] -> [a]
+inverser' xs = inverserAcc xs []
+```
+
+```
+inverser' [1,2,3]
+→ inverserAcc [1,2,3] []
+→ inverserAcc [2,3]   [1]
+→ inverserAcc [3]     [2,1]
+→ inverserAcc []      [3,2,1]
+→ [3,2,1]
+```
+
+:::caution[Limites du patron]
+Toutes les récursions ne peuvent pas être rendues terminales par un simple
+accumulateur. Quand une fonction fait **plusieurs appels récursifs** (comme
+`fib` ou `hanoi`), le calcul est intrinsèquement non-linéaire : il faut
+maintenir plusieurs branches en attente simultanément. Il n'existe pas d'astuce
+simple — on doit soit accepter la pile d'appels, soit gérer une pile explicite
+manuellement (comme vu plus haut avec `hanoi_iter`).
 :::
