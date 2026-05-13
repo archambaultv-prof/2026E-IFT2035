@@ -80,6 +80,18 @@ naturels n = n : naturels (n + 1)
 [2, 4..]    -- 2, 4, 6, 8, ...
 ```
 
+La clé est le constructeur **cons** (`:`) qui est à la base des listes en
+Haskell. Comme tout constructeur de données, `:` est **paresseux** : il
+construit une paire `(tête, reste)` sans évaluer ses arguments. Ainsi,
+`1 : uns` crée immédiatement un nœud dont la tête vaut `1` et dont la queue
+`uns` est une **thunk** — une promesse de calcul non encore évaluée.
+
+Ce n'est que lorsqu'on demande explicitement la suite (par exemple avec `tail`
+ou `take`) que le thunk est forcé, ce qui produit un nouveau nœud, qui
+lui-même contient un nouveau thunk, et ainsi de suite. C'est précisément ce
+mécanisme qui rend les listes infinies possibles : la récursion ne se déroule
+jamais entièrement, elle avance d'un cran à la fois, à la demande.
+
 Ces listes sont infinies, mais Haskell ne les calcule pas entièrement — il ne
 produit les éléments que lorsqu'ils sont demandés.
 
@@ -93,6 +105,39 @@ ghci> take 5 [2, 4..]
 ghci> take 10 (naturels 0)
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 ```
+
+:::note[Listes infinies en Python]
+Python n'a pas d'évaluation paresseuse globale, mais on retrouve le même
+concept grâce aux **itérateurs** et aux **générateurs**. Un générateur produit
+les valeurs une à une, à la demande, sans jamais construire la liste en mémoire
+— exactement comme un thunk en Haskell.
+
+```python
+def naturels(n=0):
+    while True:
+        yield n
+        n += 1
+
+from itertools import islice
+
+list(islice(naturels(), 10))  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+Chaque appel à `next()` sur le générateur force le calcul du prochain élément,
+tout comme forcer un thunk en Haskell fait avancer la liste d'un cran. La
+différence est que cette paresse est **explicite** en Python (il faut déclarer
+un générateur avec `yield`), alors qu'elle est **implicite et universelle** en
+Haskell.
+
+Une autre différence importante concerne les **types**. En Haskell, une liste
+finie et une liste infinie ont exactement le même type. En effet `[Int]` peut aussi
+bien représenter `[1, 2, 3]` que la suite infinie des entiers. En Python, en
+revanche, `list[int]` et `Generator[int, None, None]` (ou `Iterator[int]`)
+sont des types distincts : une liste est stockée entièrement en mémoire, tandis
+qu'un générateur est un objet itérable paresseux. Cette distinction de types
+reflète le fait que la paresse est un mécanisme opt-in en Python, et non une
+propriété fondamentale du langage.
+:::
 
 ## La transparence référentielle
 
@@ -141,7 +186,7 @@ La transparence référentielle est une conséquence directe de la **pureté** :
 une fonction pure n'a pas de mémoire, pas d'effets cachés, et retourne toujours
 le même résultat pour les mêmes arguments.
 
-## Pourquoi la pureté est puissante
+## Avantages de la pureté et de l'évaluation paresseuse
 
 | Propriété | Bénéfice |
 |---|---|
@@ -151,26 +196,11 @@ le même résultat pour les mêmes arguments.
 | Évaluation paresseuse | Listes infinies, évaluation à la demande |
 
 :::note[Ordre d'évaluation et résultat]
-Puisque toutes les fonctions Haskell sont pures, l'**ordre d'évaluation n'a
-aucune importance sur le résultat**. Évaluer `a + b` en évaluant `a` d'abord
-ou `b` d'abord donne toujours la même valeur. C'est le **théorème de Church-Rosser**.
 
-Cette propriété permet aussi à Haskell d'évaluer des sous-expressions en
-**parallèle** sans risque d'interférence.
+Puisque toutes les fonctions Haskell
+sont pures, l'**ordre d'évaluation n'a aucune importance sur le résultat**.
+Évaluer `a + b` en évaluant `a` d'abord ou `b` d'abord donne toujours la même
+valeur. Cette propriété permet aussi à Haskell d'évaluer des sous-expressions
+en **parallèle** sans risque d'interférence.
+
 :::
-
-## Comparer l'ordre d'évaluation
-
-```haskell
--- Avec appel par valeur : boucle infinie si x est infini
--- Avec évaluation paresseuse : retourne 0 immédiatement
-zéro :: Int -> Int
-zéro _ = 0
-
--- Haskell :
-ghci> zéro (sum [1..])   -- sum d'une liste infinie... mais jamais calculé !
-0
-```
-
-Cela illustre que l'évaluation paresseuse permet de travailler avec des
-structures conceptuellement infinies, tant qu'on n'en demande qu'une partie finie.

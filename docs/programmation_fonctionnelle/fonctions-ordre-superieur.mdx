@@ -17,13 +17,33 @@ qui :
 - prend une ou plusieurs **fonctions comme arguments**, ou
 - retourne une **fonction comme résultat**.
 
-Ce concept est l'équivalent fonctionnel des boucles et des abstractions de
-contrôle en programmation impérative.
+Ce concept est l'équivalent des abstractions de contrôle en programmation
+impérative. En effet, en programmation fonctionnelle, la **récursion** joue le rôle des boucles : au
+lieu d'un `for` ou d'un `while`, on définit une fonction qui s'appelle
+elle-même. Cela fonctionne, mais on remarque vite que certains **patrons de
+récursion reviennent constamment** : parcourir une liste pour transformer chaque
+élément, en sélectionner certains, ou les combiner en une valeur unique.
+
+Plutôt que de réécrire à la main la structure récursive à chaque fois, on la
+capture une fois pour toutes dans des **fonctions d'ordre supérieur standard**
+— `map`, `filter`, `foldr`, etc. On peut alors se concentrer sur *ce qu'on veut
+faire* à chaque élément, et laisser ces fonctions d'ordre supérieur s'occuper
+du *comment* parcourir la liste.
+
+Cette section traite des fonctions d'ordre supérieur les plus courantes sur les
+listes, car il s'agit de la structure de données la plus utilisée et représente
+une simple récursion linéaire. Les fonctions d'ordre supérieur existent
+aussi pour d'autres structures de données (arbres, graphes, etc.) et dans
+d'autres contextes (gestion des effets, etc.), mais les listes sont un bon
+point de départ pour comprendre le concept.
 
 ## Fonctions anonymes — les lambdas
 
-Parfois on veut passer une fonction simple sans lui donner de nom. On utilise
-une **expression lambda** :
+Pour utiliser les fonctions d'ordre supérieur, il faut leur passer une fonction.
+Souvent, cette fonction est trop simple pour mériter un nom propre — la nommer
+alourdirait le code sans rien apporter. On utilise alors une **expression
+lambda**, c'est-à-dire une fonction anonyme définie directement à l'endroit où
+on en a besoin :
 
 ```haskell
 -- Syntaxe : \param1 param2 -> corps
@@ -50,15 +70,21 @@ ghci> (\x y -> x + y) 3 4
 ## `map` — appliquer une fonction à chaque élément
 
 `map f liste` applique la fonction `f` à **chaque élément** de la liste et
-retourne la liste des résultats.
+retourne la liste des résultats. C'est l'équivalent fonctionnel d'une boucle
+`for` qui construit une nouvelle liste, ou encore d'une **compréhension de
+liste** en Python : `[f(x) for x in liste]`. La différence est qu'en Haskell
+cette opération est capturée dans une fonction réutilisable plutôt que répétée
+à chaque fois sous forme de boucle.
 
 ```math
 \text{map}(f, [x_1, x_2, \ldots, x_n]) = [f(x_1), f(x_2), \ldots, f(x_n)]
 ```
-
+Son type est :
 ```haskell
 map :: (a -> b) -> [a] -> [b]
 ```
+
+Voici quelques exemples d'utilisation de `map` :
 
 ```haskell
 ghci> map (\x -> x * 2) [1, 2, 3, 4, 5]
@@ -74,7 +100,8 @@ ghci> map length ["abc", "de", "fghi"]
 [3, 2, 4]
 ```
 
-En Python :
+La fonction `map` existe aussi en Python, mais elle est moins utilisée que les
+compréhensions de liste.
 ```python
 list(map(lambda x: x * 2, [1, 2, 3, 4, 5]))  # → [2, 4, 6, 8, 10]
 ```
@@ -88,14 +115,31 @@ monMap _ []       = []
 monMap f (x : xs) = f x : monMap f xs
 ```
 
+On constate que `map` capture la structure de la récursion : pour une liste
+vide, on retourne une liste vide ; pour une liste non vide, on applique `f` à
+la tête `x`, puis on fait un appel récursif sur la queue `xs`.
+
+:::info[Utilité du polymorphisme]
+
+C'est grâce au polymorphisme de `map` que la même fonction peut être utilisée
+pour transformer des listes d'entiers, de booléens, de chaînes de caractères,
+etc. Sans ce polymorphisme, il faudrait une version différente de `map` pour
+chaque type de liste, ce qui rendrait le code plus verbeux et moins réutilisable.
+
+:::
+
 ## `filter` — sélectionner des éléments
 
 `filter p liste` retourne la sous-liste des éléments qui satisfont le
-**prédicat** `p` (une fonction qui retourne un `Bool`).
+**prédicat** `p` (une fonction qui retourne un `Bool`). C'est l'équivalent de
+la compréhension de liste avec condition en Python : `[x for x in liste if p(x)]`.
 
+Son type est :
 ```haskell
 filter :: (a -> Bool) -> [a] -> [a]
 ```
+
+Voici quelques exemples d'utilisation de `filter` :
 
 ```haskell
 ghci> filter (\x -> x > 3) [1, 2, 3, 4, 5, 6]
@@ -108,28 +152,63 @@ ghci> filter (\s -> length s > 3) ["ab", "abcd", "x", "haskell"]
 ["abcd", "haskell"]
 ```
 
+Comme pour `map`, on peut voir comment `filter` capture la structure de la
+récursion en regardant son implémentation :
+
 ```haskell
 -- Implémentation manuelle
 monFilter :: (a -> Bool) -> [a] -> [a]
 monFilter _ []       = []
 monFilter p (x : xs)
-  | p x       = x : monFilter p xs
+  | p x        = x : monFilter p xs
   | otherwise  = monFilter p xs
 ```
+
+Si le prédicat est satisfait pour la tête `x`, on la conserve ; sinon on
+l'abandonne. Dans les deux cas, on continue récursivement sur la queue `xs`.
 
 ## `foldr` — réduire une liste
 
 `foldr` (*fold right*) est la fonction d'ordre supérieur la plus générale sur
 les listes. Elle remplace chaque cons (`:`) par une fonction `f`, et la liste
-vide `[]` par une valeur initiale `z` :
+vide `[]` par une valeur initiale `z`. C'est en quelque sorte l'équivalent
+fonctionnel d'une boucle `for` avec un **accumulateur** en Python :
+
+```python
+# foldr f z [x1, x2, x3]  ≈
+acc = z
+for x in reversed([x1, x2, x3]):
+    acc = f(x, acc)
+```
+
+Nous verrons plus tard que la fonction `foldr` est en réalité plus puissante
+que cette simple analogie, mais elle permet déjà de comprendre son
+fonctionnement de base. En effet, là où la boucle impérative *modifie* une
+variable `acc` à chaque itération, `foldr` exprime la même idée de manière
+purement fonctionnelle, sans état mutable.
 
 ```math
 \text{foldr}(f, z, [x_1, x_2, x_3]) = f(x_1, f(x_2, f(x_3, z)))
 ```
 
+Son type est :
 ```haskell
 foldr :: (a -> b -> b) -> b -> [a] -> b
 ```
+
+L'implémentation de `foldr` par récursion est la suivante :
+
+```haskell
+monFoldr :: (a -> b -> b) -> b -> [a] -> b
+monFoldr _ z []       = z
+monFoldr f z (x : xs) = f x (monFoldr f z xs)
+```
+
+Pour une liste vide, on retourne directement la valeur initiale `z`. Pour une
+liste non vide, on applique `f` à la tête `x` et au résultat de l'appel
+récursif sur la queue `xs`.
+
+Voici quelques exemples d'utilisation de `foldr` :
 
 ```haskell
 ghci> foldr (+) 0 [1, 2, 3, 4, 5]    -- somme
@@ -138,11 +217,56 @@ ghci> foldr (*) 1 [1, 2, 3, 4, 5]    -- produit (= 5!)
 120
 ghci> foldr (:) [] [1, 2, 3]          -- copie de liste
 [1, 2, 3]
-ghci> foldr (\x acc -> x > 3 || acc) False [1, 2, 5, 0]
+ghci> foldr (\x acc -> x > 3 || acc) False [1, 2, 5, 0] -- test si un élément > 3
 True
 ```
 
-En fait, `map` et `filter` peuvent être définis avec `foldr` :
+### Court-circuit avec `foldr`
+
+Une propriété importante de `foldr` est qu'elle peut **court-circuiter** le
+parcours de la liste. Comme `f` reçoit la tête `x` *avant* que la queue soit
+évaluée, si `f` n'a pas besoin de son second argument, la récursion s'arrête
+immédiatement — sans parcourir le reste de la liste.
+
+C'est notamment le cas de `||` : si la tête vaut `True`, le résultat est `True`
+sans qu'on ait besoin de regarder la suite.
+
+```haskell
+-- Vérifie s'il existe un élément > 3 dans la liste
+-- S'arrête dès qu'il en trouve un
+ghci> foldr (\x acc -> x > 3 || acc) False [1, 2, 5, 0, 1, 2, 3]
+True   -- s'arrête à 5, les éléments suivants ne sont pas examinés
+```
+
+En Python, l'équivalent impératif nécessite un `break` explicite :
+
+```python
+acc = False
+for x in [1, 2, 5, 0, 1, 2, 3]:
+    acc = x > 3 or acc
+    if acc:
+        break  # court-circuit explicite
+```
+
+Avec `foldr`, le court-circuit découle naturellement de l'évaluation paresseuse
+et de la structure de la fonction passée — aucun mécanisme de contrôle
+supplémentaire n'est nécessaire. Évidemment, en Python on aurait pu utiliser
+une boucle `while` pour éviter d'avoir à utiliser `break`. 
+
+```python
+i = 0
+while i < len(lst) and not (lst[i] > 3):
+    i += 1
+```
+
+La fonction `foldr`
+est donc très générale : elle peut exprimer à la fois des réductions complètes
+(comme la somme ou le produit) et des opérations de sélection avec court-circuit.
+
+### `foldr` est plus général que map et filter
+
+Parce que `foldr` est la forme la plus générale de récursion sur une liste,
+on peut l'utiliser pour redéfinir `map` et `filter` :
 
 ```haskell
 mapAvecFold :: (a -> b) -> [a] -> [b]
@@ -180,6 +304,10 @@ ghci> ajouter5 10
 15
 ```
 
+La curryfication est très pratique pour créer de nouvelles fonctions à partir
+de fonctions existantes, en fixant certains arguments comme dans les exemples
+suivants :
+
 :::info[Exemple]
 L'application partielle avec `map` :
 
@@ -202,6 +330,12 @@ opérateur infixe. On peut aussi écrire `(2 *)` ou `(+1)`, etc.
 
 ## Composition de fonctions
 
+Deux autres fonctions d'ordre supérieur très utiles sont la **composition** et
+l'**application**. Elles permettent de construire de nouvelles fonctions à
+partir de fonctions existantes, sans avoir à écrire de nouvelles fonctions
+lambda.
+
+
 L'opérateur `.` compose deux fonctions, comme la composition mathématique
 $(g \circ f)(x) = g(f(x))$ :
 
@@ -215,11 +349,11 @@ ghci> ((*2) . (+1)) 3     -- d'abord +1, puis *2 : (3+1)*2 = 8
 8
 
 -- Transformer et sélectionner en une seule fonction
-carresPositifs :: [Int] -> [Int]
-carresPositifs = filter (> 0) . map (\x -> x * x - 10)
+carresPlusGrandsQue10 :: [Int] -> [Int]
+carresPlusGrandsQue10 = filter (> 10) . map (\x -> x * x)
 
-ghci> carresPositifs [-3, -1, 0, 4, 5]
-[6, 15]
+ghci> carresPlusGrandsQue10 [-3, -1, 0, 4, 5]
+[16, 25]
 ```
 
 L'opérateur `$` applique une fonction à un argument, mais avec la **priorité la
@@ -227,10 +361,10 @@ plus basse**. Il évite les parenthèses :
 
 ```haskell
 -- Sans $ :
-print (filter even (map (*2) [1..10]))
+filter even (map (*2) [1..10])
 
 -- Avec $ :
-print $ filter even $ map (*2) [1..10]
+filter even $ map (*2) [1..10]
 ```
 
 ## Récapitulatif
@@ -247,7 +381,4 @@ print $ filter even $ map (*2) [1..10]
 -- Exemple complet : somme des carrés des nombres pairs de 1 à 100
 résultat :: Int
 résultat = foldr (+) 0 . map (^2) . filter even $ [1..100]
-
-ghci> résultat
-171700
 ```
