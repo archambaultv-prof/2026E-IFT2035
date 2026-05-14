@@ -1,0 +1,76 @@
+---
+sidebar_position: 14
+sidebar_label: "Ex. 13 — Questions conceptuelles"
+description: Questions à réponse courte sur les concepts fondamentaux de la programmation fonctionnelle.
+---
+
+# Exercice 13 — Questions conceptuelles
+
+Pour chaque question, une réponse de **une à trois phrases** suffit.
+
+## Transparence référentielle et immuabilité
+
+1. En Haskell, peut-on écrire une fonction `f :: Int -> Int` telle que `f 3`
+   retourne `5` la première fois et `7` la seconde ? Justifier.
+
+## Types et inférence
+
+2. Quelle est la différence entre un **langage à typage statique** et un
+   **langage à typage dynamique** ? Donner un exemple de bug que le typage
+   statique attrape et que le typage dynamique ne détecte qu'à l'exécution.
+
+3. L'**inférence de types** permet d'omettre les annotations de type en
+   Haskell. Malgré cela, il est recommandé de les écrire quand même pour les
+   définitions de fonctions. Pourquoi ?
+
+4. Que signifie le type `a -> b -> a` pour une fonction `f` ? Que peut-on
+   déduire du comportement de `f` rien qu'en lisant ce type ?
+
+## Types algébriques et filtrage
+
+5. Quelle est la différence entre un **type produit** et un **type somme** ?
+   Donner un exemple de chacun en Haskell.
+
+6. En Haskell, le compilateur avertit si un filtrage par motif est **non
+   exhaustif** (certains cas ne sont pas couverts). Quel problème cela
+   prévient-il ? Comparer avec Python.
+
+7. Pourquoi dit-on que `Maybe a` est préférable à retourner `null` (ou `None`)
+   pour signaler l'absence d'une valeur ?
+
+## Récursion
+
+8. Qu'est-ce que la **récursion terminale** (*tail recursion*) et quel en est
+    l'avantage pratique ? Donner un exemple simple de transformation d'une
+    fonction non terminale en terminale.
+
+## Ordre d'évaluation
+
+9. Donner **un avantage** et **un inconvénient** de l'**évaluation paresseuse**
+    par rapport à l'évaluation stricte.
+
+10. Qu'est-ce que la **transparence référentielle** a à voir avec l'ordre
+    d'évaluation ? Pourquoi un langage avec effets de bord ne peut-il pas
+    facilement être paresseux ?
+
+## Fonctions d'ordre supérieur et curryfication
+
+11. En Haskell, pourquoi dit-on que les fonctions Haskell sont **currifiées** ?
+    Quel est l'avantage de la curryfication sur les fonctions qui prennent un
+    tuple d'arguments ?
+
+12. `foldr` peut exprimer `map` et `filter`. Qu'est-ce que cela suggère sur la
+    généralité de `foldr` par rapport à ces deux fonctions ?
+
+13. Quelle est la différence entre `map f (map g xs)` et `map (f . g) xs` en
+    termes de résultat et de performance ?
+
+## Portée et fermetures
+
+14. Quelle est la différence entre **portée statique** et **portée dynamique** ?
+    Quel comportement surprenant la portée dynamique peut-elle provoquer ?
+
+15. Une **fermeture** (*closure*) capture son environnement lexical. Expliquer
+    ce que cela signifie concrètement avec un exemple en Haskell.
+
+16. Qu'est-ce qu'une **variable libre** dans une expression ?

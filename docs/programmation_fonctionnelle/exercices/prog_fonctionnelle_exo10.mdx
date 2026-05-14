@@ -1,0 +1,136 @@
+---
+sidebar_position: 11
+sidebar_label: "Ex. 10 — Table associative fonctionnelle"
+description: Encoder une table associative (dictionnaire) à l'aide de fonctions, sans type de données.
+---
+
+# Exercice 10 — Table associative fonctionnelle
+
+## Mise en contexte
+
+Dans la section Fonctions d'ordre supérieur, vous avez vu que les fonctions
+sont des valeurs de première classe. Cet exercice pousse cette idée à l'extrême
+: on va représenter un **dictionnaire** (table clé–valeur) non pas par un type
+de données, mais directement par une **fonction**.
+
+L'idée vient du lambda calcul : toute structure de données peut être encodée
+comme une fonction. Ici, une table sera simplement une **fonction qui prend une
+clé et retourne la valeur associée**.
+
+```haskell
+type Table k v = k -> Maybe v
+```
+
+C'est tout. Une `Table k v` est une fonction `k -> Maybe v`. Pas de `data`, pas
+de liste d'associations cachée — juste une fonction.
+
+## Partie A — Construction de base
+
+1. Implémenter `tableVide :: Table k v`, la table qui ne contient aucune
+   association (retourne toujours `Nothing`).
+
+   ```haskell
+   tableVide :: Table k v
+   tableVide = undefined
+   ```
+
+   ```haskell
+   ghci> tableVide "x"
+   Nothing
+   ghci> tableVide 42
+   Nothing
+   ```
+
+2. Implémenter `inserer :: Eq k => k -> v -> Table k v -> Table k v`. La table
+   résultante doit retourner `Just v` pour la clé `cle`, et se comporter comme
+   la table originale pour toutes les autres clés.
+
+   ```haskell
+   inserer :: Eq k => k -> v -> Table k v -> Table k v
+   inserer cle val table = undefined
+   ```
+
+   ```haskell
+   ghci> let t = inserer "x" 10 (inserer "y" 20 tableVide)
+   ghci> t "x"
+   Just 10
+   ghci> t "y"
+   Just 20
+   ghci> t "z"
+   Nothing
+   ```
+
+3. Implémenter `rechercher :: k -> Table k v -> Maybe v`.
+
+   ```haskell
+   rechercher :: k -> Table k v -> Maybe v
+   rechercher = undefined
+   ```
+
+## Partie B — Opérations supplémentaires
+
+4. Implémenter `supprimer :: Eq k => k -> Table k v -> Table k v` qui retourne
+   une table identique sauf que la clé `cle` est absente.
+
+   ```haskell
+   supprimer :: Eq k => k -> Table k v -> Table k v
+   supprimer cle table = undefined
+   ```
+
+   ```haskell
+   ghci> let t  = inserer "x" 10 (inserer "y" 20 tableVide)
+   ghci> let t' = supprimer "x" t
+   ghci> t' "x"
+   Nothing
+   ghci> t' "y"
+   Just 20
+   ```
+
+5. Implémenter `modifier :: Eq k => k -> (v -> v) -> Table k v -> Table k v`
+   qui applique une fonction à la valeur associée à `cle` si elle existe, et
+   laisse la table inchangée sinon.
+
+   ```haskell
+   modifier :: Eq k => k -> (v -> v) -> Table k v -> Table k v
+   modifier cle f table = undefined
+   ```
+
+   ```haskell
+   ghci> let t  = inserer "score" 5 tableVide
+   ghci> let t' = modifier "score" (+3) t
+   ghci> t' "score"
+   Just 8
+   ```
+
+6. Implémenter `fusionner :: Eq k => Table k v -> Table k v -> Table k v` qui
+   retourne une table contenant les associations des deux tables. En cas de
+   conflit (même clé dans les deux), la première table a priorité.
+
+   ```haskell
+   fusionner :: Eq k => Table k v -> Table k v -> Table k v
+   fusionner t1 t2 = undefined
+   ```
+
+## Partie C — Depuis une liste
+
+7. Implémenter `depuisListe :: Eq k => [(k, v)] -> Table k v` qui construit une
+   table à partir d'une liste de paires. En cas de clés dupliquées, la première
+   occurrence a priorité.
+
+   ```haskell
+   depuisListe :: Eq k => [(k, v)] -> Table k v
+   depuisListe = undefined  -- indice : foldr avec inserer
+   ```
+
+   ```haskell
+   ghci> let t = depuisListe [("a", 1), ("b", 2), ("c", 3)]
+   ghci> t "b"
+   Just 2
+   ghci> t "d"
+   Nothing
+   ```
+
+## Partie D — Réflexion
+
+8. Pourquoi est-il **impossible** d'implémenter une fonction
+   `toutesCles :: Table k v -> [k]` avec cette représentation ?

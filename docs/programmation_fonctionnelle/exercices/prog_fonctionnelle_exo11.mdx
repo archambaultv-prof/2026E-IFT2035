@@ -1,0 +1,278 @@
+---
+sidebar_position: 12
+sidebar_label: "Ex. 11 — Boucles et récursion"
+description: Traduire des boucles for et while en fonctions récursives, et vice versa.
+---
+
+# Exercice 11 — Boucles et récursion
+
+## Mise en contexte
+
+La section Récursion explique que la récursion est l'équivalent fonctionnel des
+boucles. Cet exercice vous entraîne à passer de l'un à l'autre dans les deux
+sens.
+
+Règle du jeu :
+- Dans la direction **boucle → récursion**, votre code Haskell ne doit pas
+  utiliser de fonctions de la bibliothèque standard comme `map`, `filter`,
+  `foldr`, etc. — écrivez la récursion explicitement.
+- Dans la direction **récursion → boucle**, le code Python doit
+  utiliser `for` ou `while` et des variables mutables, **sans récursion**.
+
+## Partie A — Boucles `for` → récursion
+
+Traduire chaque fonction Python en Haskell récursif.
+
+1. **Somme des éléments d'une liste**
+
+   ```python
+   def somme(lst):
+       total = 0
+       for x in lst:
+           total += x
+       return total
+   ```
+
+   ```haskell
+   somme :: [Int] -> Int
+   somme = undefined
+   ```
+
+2. **Compter les éléments satisfaisant un prédicat**
+
+   ```python
+   def compter(pred, lst):
+       count = 0
+       for x in lst:
+           if pred(x):
+               count += 1
+       return count
+   ```
+
+   ```haskell
+   compter :: (a -> Bool) -> [a] -> Int
+   compter = undefined
+   ```
+
+   ```haskell
+   ghci> compter even [1..10]
+   5
+   ```
+
+3. **Trouver le maximum (liste non vide)**
+
+   ```python
+   def maximum(lst):
+       m = lst[0]
+       for x in lst[1:]:
+           if x > m:
+               m = x
+       return m
+   ```
+
+   ```haskell
+   maximum' :: Ord a => [a] -> a
+   maximum' = undefined
+   ```
+
+4. **Construire la liste des carrés de 1 à n**
+
+   ```python
+   def carres(n):
+       result = []
+       for i in range(1, n + 1):
+           result.append(i * i)
+       return result
+   ```
+
+   ```haskell
+   carres :: Int -> [Int]
+   carres = undefined
+   ```
+
+   ```haskell
+   ghci> carres 5
+   [1,4,9,16,25]
+   ```
+
+5. **Aplatir une liste de listes**
+
+   ```python
+   def aplatir(listes):
+       result = []
+       for lst in listes:
+           for x in lst:
+               result.append(x)
+       return result
+   ```
+
+   ```haskell
+   aplatir :: [[a]] -> [a]
+   aplatir = undefined
+   ```
+
+   ```haskell
+   ghci> aplatir [[1,2],[3],[4,5,6]]
+   [1,2,3,4,5,6]
+   ```
+
+## Partie B — Boucles `while` → récursion
+
+Les boucles `while` se traduisent en récursion où l'**état** de la boucle
+devient les **paramètres** de la fonction récursive, et la **condition d'arrêt**
+de la boucle devient le **cas de base**.
+
+6. **Algorithme d'Euclide (PGCD)**
+
+   ```python
+   def pgcd(a, b):
+       while b != 0:
+           a, b = b, a % b
+       return a
+   ```
+
+   ```haskell
+   pgcd' :: Int -> Int -> Int
+   pgcd' = undefined
+   ```
+
+   ```haskell
+   ghci> pgcd' 48 18
+   6
+   ghci> pgcd' 100 75
+   25
+   ```
+
+   :::tip
+   Identifiez les variables qui changent à chaque tour de boucle (`a` et `b`) :
+   elles deviennent les paramètres de la fonction récursive.
+   :::
+
+7. **Puissance entière**
+
+   ```python
+   def puissance(base, exp):
+       result = 1
+       while exp > 0:
+           result *= base
+           exp -= 1
+       return result
+   ```
+
+   ```haskell
+   puissance :: Int -> Int -> Int
+   puissance = undefined
+   ```
+
+   ```haskell
+   ghci> puissance 2 10
+   1024
+   ```
+
+8. **Recherche linéaire — trouver le premier indice**
+
+   ```python
+   def trouver(pred, lst):
+       i = 0
+       while i < len(lst):
+           if pred(lst[i]):
+               return i
+           i += 1
+       return -1   # non trouvé
+   ```
+
+   ```haskell
+   trouver :: (a -> Bool) -> [a] -> Maybe Int
+   trouver = undefined
+   ```
+
+   :::tip
+   Utilisez `Maybe Int` plutôt que `-1` pour signaler l'absence — c'est plus
+   idiomatique en Haskell.
+   :::
+
+   ```haskell
+   ghci> trouver even [1, 3, 4, 6]
+   Just 2
+   ghci> trouver even [1, 3, 5]
+   Nothing
+   ```
+
+## Partie C — Récursion → boucle impérative
+
+Traduire chaque fonction Haskell en Python **itératif** (sans récursion).
+
+9. **Renverser une liste**
+
+   ```haskell
+   renverser :: [a] -> [a]
+   renverser []     = []
+   renverser (x:xs) = renverser xs ++ [x]
+   ```
+
+   ```python
+   def renverser(lst):
+       # TODO : version itérative avec une boucle
+       pass
+   ```
+
+10. **Longueur d'une liste**
+
+    ```haskell
+    longueur :: [a] -> Int
+    longueur []     = 0
+    longueur (_:xs) = 1 + longueur xs
+    ```
+
+    ```python
+    def longueur(lst):
+        # TODO : version itérative
+        pass
+    ```
+
+11. **Filtrage**
+
+    ```haskell
+    garder :: (a -> Bool) -> [a] -> [a]
+    garder _ []     = []
+    garder p (x:xs)
+      | p x       = x : garder p xs
+      | otherwise =     garder p xs
+    ```
+
+    ```python
+    def garder(pred, lst):
+        # TODO : version itérative
+        pass
+    ```
+
+## Partie D — Récursion terminale
+
+Une fonction récursive est en **récursion terminale** (*tail recursion*) si
+l'appel récursif est la **dernière** opération effectuée (aucun calcul n'attend
+son retour).
+
+```haskell
+-- Récursion NON terminale : + attend le résultat de somme
+somme []     = 0
+somme (x:xs) = x + somme xs
+
+-- Récursion terminale : l'appel récursif est la dernière chose
+sommeAcc []     acc = acc
+sommeAcc (x:xs) acc = sommeAcc xs (acc + x)
+somme' xs = sommeAcc xs 0
+```
+
+12. Réécrire en récursion terminale (avec un accumulateur) :
+
+    a. `longueur :: [a] -> Int`
+
+    b. `renverser :: [a] -> [a]`
+
+    c. `factorielle :: Integer -> Integer`
+
+13. Pourquoi la récursion terminale est-elle importante d'un point de vue
+    pratique ? Qu'est-ce que l'optimisation TCO (*Tail Call Optimization*) ?
+    Haskell bénéficie-t-il de cette optimisation ? Est-ce que l'évaluation
+    paresseuse de Haskell rend la TCO moins performante que dans les langages
+    stricts ?

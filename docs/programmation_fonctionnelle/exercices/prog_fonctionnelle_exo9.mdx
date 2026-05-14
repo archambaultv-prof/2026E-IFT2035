@@ -1,0 +1,82 @@
+---
+sidebar_position: 10
+sidebar_label: "Ex. 9 — Évaluateur avec portée dynamique"
+description: Implémenter un évaluateur avec variables et comparer portée statique et portée dynamique.
+---
+
+# Exercice 9 — Évaluateur avec portée dynamique
+
+## Mise en contexte
+
+L'exercice 5 a implémenté un évaluateur à **portée statique** : une fermeture
+capture l'environnement au moment de sa définition, et les variables libres
+sont résolues dans cet environnement capturé. La **portée dynamique**
+fonctionne différemment : les variables libres sont résolues dans
+l'environnement au moment de l'**appel**, pas de la définition. Certains
+langages historiques (Emacs Lisp, bash, les premiers Lisp) utilisent ce
+comportement.
+
+## Le langage
+
+On réutilise le même type d'expressions qu'à l'exercice 5 :
+
+```haskell
+type Nom = String
+
+data Expr
+  = Lit  Int
+  | Var  Nom
+  | Add  Expr Expr
+  | Lam  Nom  Expr
+  | App  Expr Expr
+  deriving (Show)
+```
+
+Avec la portée dynamique, une fonction n'a pas besoin de capturer
+l'environnement : il suffit de stocker son paramètre et son corps.
+
+```haskell
+type Env = [(Nom, Valeur)]
+
+data Valeur
+  = VInt Int
+  | VFonction Nom Expr    -- paramètre et corps, sans env capturé
+  deriving (Show)
+
+chercher :: Nom -> Env -> Valeur
+chercher x []          = error ("Variable non liée : " ++ x)
+chercher x ((y,v):env)
+  | x == y    = v
+  | otherwise = chercher x env
+```
+
+## Partie A — L'évaluateur
+
+1. Compléter l'évaluateur à portée dynamique :
+
+   ```haskell
+   eval :: Env -> Expr -> Valeur
+   eval env (Lit n)     = VInt n
+   eval env (Var x)     = chercher x env
+   eval env (Add e1 e2) =
+     case (eval env e1, eval env e2) of
+       (VInt a, VInt b) -> VInt (a + b)
+       _                -> error "Add: types incorrects"
+   eval env (Lam x corps) =
+     undefined   -- une VFonction, sans capturer env
+   eval env (App f arg)   =
+     undefined   -- évaluer f et arg, puis appliquer avec env COURANT
+   ```
+
+## Partie B — Observer la différence
+
+2. Écriver un programme qui prouve que votre évaluateur utilise la portée
+   dynamique.
+
+## Partie C — Réflexion
+
+3. Donner un exemple de situation où la portée dynamique serait **pratique**.
+
+4. Pourquoi la portée statique est-elle généralement préférable pour raisonner
+   sur la **correction** d'un programme ?
+

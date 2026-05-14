@@ -1,0 +1,213 @@
+---
+sidebar_position: 13
+sidebar_label: "Ex. 12 — Classes de types"
+description: Utiliser les contraintes de classes, définir des instances et créer ses propres classes de types.
+---
+
+# Exercice 12 — Classes de types
+
+## Partie A — Lire les contraintes
+
+Pour chacune des signatures ci-dessous, répondre aux questions sans exécuter
+le code.
+
+1. Soit la signature suivante :
+
+   ```haskell
+   f :: Eq a => [a] -> a -> Bool
+   ```
+   - Que peut-on faire avec les valeurs de type `a` dans le corps de `f` ?
+   - Peut-on appeler `f [1, 2, 3] 2` ? Et `f "abc" 'b'` ?
+   - Peut-on appeler `f` sur une liste de fonctions `[Int -> Int]` ? Pourquoi ?
+
+2. Soit la signature suivante :
+   ```haskell
+   g :: (Ord a, Show a) => [a] -> String
+   ```
+   - Quelles deux opérations sont garanties disponibles sur `a` ?
+   - Donner un exemple d'appel valide et un exemple d'appel invalide.
+
+3. Soit la signature suivante :
+   ```haskell
+   h :: (Num a, Eq a) => a -> a -> a
+   ```
+   - Peut-on déduire si `h` est la fonction division ? Pourquoi ?
+
+## Partie B — Écrire des fonctions avec contraintes
+
+4. Écrire `appartient :: Eq a => a -> [a] -> Bool` qui teste si un élément est
+   dans une liste.
+
+   ```haskell
+   appartient :: Eq a => a -> [a] -> Bool
+   appartient = undefined
+   ```
+
+   ```haskell
+   ghci> appartient 3 [1, 2, 3, 4]
+   True
+   ghci> appartient 'z' "bonjour"
+   False
+   ```
+
+5. Écrire `nubOrd :: Ord a => [a] -> [a]` qui supprime les doublons d'une liste
+   **triée** (les doublons sont toujours adjacents).
+
+   ```haskell
+   nubOrd :: Eq a => [a] -> [a]
+   nubOrd []       = []
+   nubOrd [x]      = [x]
+   nubOrd (x:y:xs) = undefined
+   ```
+
+   ```haskell
+   ghci> nubOrd [1,1,2,3,3,3,4]
+   [1,2,3,4]
+   ```
+
+6. Écrire `afficherListe :: Show a => [a] -> String` qui produit une
+   représentation textuelle d'une liste, par exemple `[1, 2, 3]` → `"[1, 2, 3]"`.
+   Ne pas utiliser `show` directement sur la liste entière.
+
+   ```haskell
+   afficherListe :: Show a => [a] -> String
+   afficherListe = undefined
+   ```
+
+   :::tip
+   `show x` convertit une valeur en `String`. `intercalate ", " ["a","b","c"]`
+   donne `"a, b, c"` (disponible dans `Data.List`). Ou faites-le récursivement.
+   :::
+
+   ```haskell
+   ghci> afficherListe [1, 2, 3 :: Int]
+   "[1, 2, 3]"
+   ghci> afficherListe ([] :: [Bool])
+   "[]"
+   ```
+
+## Partie C — Déclarer des instances
+
+Considérons le type suivant pour représenter des fractions :
+
+```haskell
+data Fraction = Fraction Int Int  -- numérateur, dénominateur
+```
+
+On suppose le dénominateur toujours positif et la fraction **non simplifiée**
+(on ne demande pas la forme irréductible dans cet exercice).
+
+7. Déclarer `instance Show Fraction` pour afficher une fraction sous la forme
+   `"3/4"` ou `"5/1"`.
+
+   ```haskell
+   instance Show Fraction where
+     show (Fraction n d) = undefined
+   ```
+
+   ```haskell
+   ghci> show (Fraction 3 4)
+   "3/4"
+   ghci> Fraction 5 1
+   5/1
+   ```
+
+8. Déclarer `instance Eq Fraction` : deux fractions sont égales si et seulement
+   si leurs produits croisés sont égaux ($\frac{a}{b} = \frac{c}{d} \iff a \times d = b \times c$).
+
+   ```haskell
+   instance Eq Fraction where
+     (Fraction a b) == (Fraction c d) = undefined
+   ```
+
+   ```haskell
+   ghci> Fraction 1 2 == Fraction 2 4
+   True
+   ghci> Fraction 1 2 == Fraction 1 3
+   False
+   ```
+
+9. Déclarer `instance Ord Fraction` : $\frac{a}{b} < \frac{c}{d} \iff a \times d < b \times c$.
+
+   ```haskell
+   instance Ord Fraction where
+     compare (Fraction a b) (Fraction c d) = undefined
+   ```
+
+   :::tip
+   `compare` retourne `LT`, `EQ` ou `GT`. Vous pouvez utiliser `compare` sur
+   les entiers pour comparer les produits croisés.
+   :::
+
+   ```haskell
+   ghci> Fraction 1 3 < Fraction 1 2
+   True
+   ghci> maximum [Fraction 2 3, Fraction 3 4, Fraction 1 2]
+   3/4
+   ```
+
+   *(Remarque : `maximum` utilise `Ord`, donc dès que l'instance est déclarée,
+   `maximum` fonctionne sur des listes de `Fraction`.)*
+
+## Partie D — Créer sa propre classe de types
+
+Nous allons définir une classe `Conteneur` pour les structures qui contiennent
+des éléments et peuvent être transformées.
+
+```haskell
+class Conteneur f where
+  vide    :: f a                         -- conteneur vide
+  inserer :: a -> f a -> f a             -- ajouter un élément
+  versListe :: f a -> [a]               -- convertir en liste
+  taille  :: f a -> Int                  -- nombre d'éléments
+  taille c = length (versListe c)        -- implémentation par défaut
+```
+
+10. Déclarer `instance Conteneur []` (les listes sont un conteneur).
+
+    ```haskell
+    instance Conteneur [] where
+      vide      = undefined
+      inserer   = undefined
+      versListe = undefined
+    ```
+
+    ```haskell
+    ghci> inserer 3 (inserer 2 (inserer 1 (vide :: [Int])))
+    [3,2,1]
+    ghci> taille [1,2,3,4]
+    4
+    ```
+
+11. Déclarer `instance Conteneur Maybe` (un `Maybe` contient au plus un élément).
+
+    ```haskell
+    instance Conteneur Maybe where
+      vide      = Nothing
+      inserer x _ = Just x      -- remplace l'éventuel élément existant
+      versListe = undefined
+    ```
+
+    ```haskell
+    ghci> versListe (Just 42)
+    [42]
+    ghci> versListe (Nothing :: Maybe Int)
+    []
+    ghci> taille (Just "bonjour")
+    1
+    ```
+
+12. Écrire la fonction polymorphe suivante qui fonctionne pour **tout**
+    `Conteneur` :
+
+    ```haskell
+    depuisListe :: Conteneur f => [a] -> f a
+    depuisListe = undefined  -- indice : foldr inserer vide
+    ```
+
+    ```haskell
+    ghci> depuisListe [1,2,3] :: [Int]
+    [3,2,1]
+    ghci> depuisListe [1,2,3] :: Maybe Int
+    Just 1
+    ```

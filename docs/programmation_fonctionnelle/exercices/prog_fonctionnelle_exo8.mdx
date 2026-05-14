@@ -1,0 +1,168 @@
+---
+sidebar_position: 9
+sidebar_label: "Ex. 8 — Arbre binaire de recherche"
+description: Implémenter insert, lookup et remove sur un arbre binaire de recherche en Haskell.
+---
+
+# Exercice 8 — Arbre binaire de recherche
+
+## Rappel
+
+Un **arbre binaire de recherche** (ABR) est un arbre binaire où, pour chaque
+nœud de clé $k$ :
+
+- toutes les clés du sous-arbre **gauche** sont **strictement inférieures** à $k$,
+- toutes les clés du sous-arbre **droit** sont **strictement supérieures** à $k$.
+
+Cette invariante garantit que `lookup`, `insert` et `remove` s'effectuent en
+$O(\log n)$ si l'arbre est équilibré.
+
+## Le type de données
+
+```haskell
+data ABR k v
+  = Vide
+  | Noeud (ABR k v) k v (ABR k v)
+  deriving (Show)
+```
+
+Un nœud `Noeud gauche cle valeur droite` stocke une paire clé–valeur et ses
+deux sous-arbres.
+
+**Exemple :**
+
+```
+        (4, "quatre")
+       /             \
+  (2, "deux")    (6, "six")
+  /       \
+(1,"un") (3,"trois")
+```
+
+Se construit ainsi :
+
+```haskell
+exemple :: ABR Int String
+exemple =
+  Noeud
+    (Noeud
+      (Noeud Vide 1 "un"    Vide)
+      2 "deux"
+      (Noeud Vide 3 "trois" Vide))
+    4 "quatre"
+    (Noeud Vide 6 "six" Vide)
+```
+
+## Partie A — Recherche
+
+1. Implémenter `recherche :: Ord k => k -> ABR k v -> Maybe v` qui retourne la
+   valeur associée à une clé, ou `Nothing` si elle est absente.
+
+   ```haskell
+   recherche :: Ord k => k -> ABR k v -> Maybe v
+   recherche _   Vide              = undefined
+   recherche cle (Noeud g k v d)   = undefined
+   ```
+
+   :::tip
+   Comparez `cle` à `k` avec `compare` qui retourne `LT`, `EQ` ou `GT`.
+   :::
+
+   ```haskell
+   ghci> recherche 3 exemple
+   Just "trois"
+   ghci> recherche 5 exemple
+   Nothing
+   ```
+
+## Partie B — Insertion
+
+2. Implémenter `inserer :: Ord k => k -> v -> ABR k v -> ABR k v` qui insère
+   une paire clé–valeur. Si la clé existe déjà, la valeur est **remplacée**.
+
+   ```haskell
+   inserer :: Ord k => k -> v -> ABR k v -> ABR k v
+   inserer cle val Vide             = undefined
+   inserer cle val (Noeud g k v d)  = undefined
+   ```
+
+   ```haskell
+   ghci> recherche 5 (inserer 5 "cinq" exemple)
+   Just "cinq"
+   ghci> recherche 2 (inserer 2 "TWO" exemple)
+   Just "TWO"
+   ```
+
+3. Vérifier que l'invariante de l'ABR est maintenue après deux insertions
+   consécutives. Dessiner l'arbre résultant de :
+
+   ```haskell
+   inserer 7 "sept" (inserer 0 "zéro" exemple)
+   ```
+
+## Partie C — Suppression
+
+La suppression est la partie la plus délicate. Trois cas se présentent :
+
+- **La clé est absente** : l'arbre est inchangé.
+- **Le nœud est une feuille** (sans enfants) : on le remplace par `Vide`.
+- **Le nœud a un seul enfant** : on remplace le nœud par cet enfant.
+- **Le nœud a deux enfants** : on le remplace par son **successeur** (le plus
+  petit élément du sous-arbre droit), puis on supprime ce successeur dans le
+  sous-arbre droit.
+
+4. Implémenter `minimum' :: ABR k v -> (k, v)` qui retourne la paire clé–valeur
+   de la plus petite clé de l'arbre. On suppose l'arbre non vide.
+
+   ```haskell
+   minimum' :: ABR k v -> (k, v)
+   minimum' Vide            = error "arbre vide"
+   minimum' (Noeud Vide k v _) = undefined
+   minimum' (Noeud g    k v _) = undefined
+   ```
+
+5. Implémenter `supprimer :: Ord k => k -> ABR k v -> ABR k v`.
+
+   ```haskell
+   supprimer :: Ord k => k -> ABR k v -> ABR k v
+   supprimer _   Vide             = Vide
+   supprimer cle (Noeud g k v d)  = undefined
+   ```
+
+   ```haskell
+   ghci> recherche 4 (supprimer 4 exemple)
+   Nothing
+   ghci> recherche 3 (supprimer 4 exemple)
+   Just "trois"
+   ghci> recherche 6 (supprimer 4 exemple)
+   Just "six"
+   ```
+
+## Partie D — Parcours et conversion
+
+6. Implémenter `versListe :: ABR k v -> [(k, v)]` qui retourne la liste de
+   toutes les paires clé–valeur **triées par clé croissante** (parcours
+   in-ordre).
+
+   ```haskell
+   versListe :: ABR k v -> [(k, v)]
+   versListe = undefined
+   ```
+
+   ```haskell
+   ghci> versListe exemple
+   [(1,"un"),(2,"deux"),(3,"trois"),(4,"quatre"),(6,"six")]
+   ```
+
+7. Implémenter `depuisListe :: Ord k => [(k, v)] -> ABR k v` qui construit un
+   ABR à partir d'une liste de paires (non nécessairement triée).
+
+   ```haskell
+   depuisListe :: Ord k => [(k, v)] -> ABR k v
+   depuisListe = undefined  -- indice : foldr ou foldl avec inserer
+   ```
+
+8. *(Réflexion)* Si on construit un ABR en insérant une liste **déjà triée**
+   `[1, 2, 3, 4, 5]`, quelle est la forme de l'arbre résultant ? Quelle est la
+   complexité de `recherche` dans ce cas ? Que faudrait-il faire pour éviter ce
+   problème ?
