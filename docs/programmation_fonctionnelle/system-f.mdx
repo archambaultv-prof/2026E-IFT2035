@@ -1,0 +1,245 @@
+---
+sidebar_position: 14
+sidebar_label: System F
+description: System F
+---
+
+# System F
+
+## La limite du STLC
+
+Dans le lambda calcul simplement typé, chaque terme a un type fixe et concret.
+La fonction identité doit être réécrite pour chaque type :
+
+$$
+\lambda x{:}\mathbf{Int}.\, x \;:\; \mathbf{Int} \to \mathbf{Int}
+\qquad\quad
+\lambda x{:}\mathbf{Bool}.\, x \;:\; \mathbf{Bool} \to \mathbf{Bool}
+\qquad\quad
+\cdots
+$$
+
+C'est manifestement insatisfaisant. En Haskell, vous savez depuis la section
+Polymorphisme qu'on peut écrire une seule fonction `id :: a -> a` qui
+fonctionne pour n'importe quel type — c'est le **polymorphisme paramétrique**.
+Le formalisme qui capture cette idée s'appelle **System F**.
+
+**System F** (aussi appelé **lambda calcul polymorphe** ou $\lambda_2$) a été
+découvert indépendamment par **Jean-Yves Girard** en 1972 (dans sa thèse de
+doctorat sur la logique) et par **John C. Reynolds** en 1974 (dans un contexte
+informatique). Il étend le STLC en permettant l'**abstraction sur les types
+eux-mêmes**.
+
+## Types universels
+
+System F ajoute un nouveau constructeur de types : le **type universel**
+$\forall \alpha.\, \tau$.
+
+La grammaire des types devient :
+
+$$
+\tau \;::=\; \alpha \;\mid\; \iota \;\mid\; \tau_1 \to \tau_2 \;\mid\; \forall \alpha.\, \tau
+$$
+
+- $\alpha$, $\beta$, … sont des **variables de type** (comme `a`, `b` en
+  Haskell).
+- $\forall \alpha.\, \tau$ se lit « pour tout type $\alpha$, le type $\tau$ ».
+  C'est une abstraction sur le type.
+
+### Correspondance avec Haskell
+
+En Haskell, les variables de type minuscules dans les signatures correspondent
+exactement aux variables de type de System F. Le $\forall$ est **implicite** en
+Haskell standard — GHC, le compilateur, le quantifie automatiquement pour toute variable de type
+libre dans une signature :
+
+| System F | Haskell |
+|---|---|
+| $\forall \alpha.\, \alpha \to \alpha$ | `a -> a` |
+| $\forall \alpha.\, \forall \beta.\, \alpha \to \beta \to \alpha$ | `a -> b -> a` |
+| $\forall \alpha.\, [\alpha] \to \mathbf{Int}$ | `[a] -> Int` |
+
+
+## Termes de System F
+
+System F ajoute deux nouvelles formes de termes pour manipuler les types :
+
+$$
+t \;::=\; x \;\mid\; \lambda x{:}\tau.\, t \;\mid\; t\; t \;\mid\; \Lambda \alpha.\, t \;\mid\; t\; [\tau]
+$$
+
+| Forme | Notation | Signification |
+|---|---|---|
+| **Abstraction de type** | $\Lambda \alpha.\, t$ | Paramétrer $t$ par un type $\alpha$ |
+| **Application de type** | $t\; [\tau]$ | Instancier le paramètre de type à $\tau$ |
+
+On distingue deux niveaux d'abstraction :
+
+- $\lambda x.\, t$ : abstraction sur une **valeur** (paramètre ordinaire).
+- $\Lambda \alpha.\, t$ : abstraction sur un **type** (paramètre de type).
+
+En Haskell, les abstractions et applications de types sont **entièrement
+implicites** : GHC les insère et les résout automatiquement lors de la
+vérification des types. La notation $\Lambda$ rend visible ce que le compilateur
+fait en coulisses.
+
+## La fonction identité polymorphe
+
+La fonction identité polymorphe s'écrit en System F :
+
+$$
+\mathbf{id} \;=\; \Lambda \alpha.\, \lambda x{:}\alpha.\, x \;:\; \forall \alpha.\, \alpha \to \alpha
+$$
+
+Pour l'utiliser sur des entiers, on l'instancie d'abord avec le type
+$\mathbf{Int}$ :
+
+$$
+\mathbf{id}\; [\mathbf{Int}] \;\to_\beta\; \lambda x{:}\mathbf{Int}.\, x \;:\; \mathbf{Int} \to \mathbf{Int}
+$$
+
+Puis on l'applique :
+
+$$
+\mathbf{id}\; [\mathbf{Int}]\; 42 \;\to_\beta\; (\lambda x{:}\mathbf{Int}.\, x)\; 42 \;\to_\beta\; 42
+$$
+
+En Haskell, tout cela est invisible :
+
+```haskell
+id :: a -> a
+id x = x
+
+ghci> id 42      -- instanciation implicite à Int
+42
+ghci> id True    -- instanciation implicite à Bool
+True
+ghci> id "allo"  -- instanciation implicite à String
+"allo"
+```
+
+## Règles de typage de System F
+
+Les règles de typage pour les deux nouvelles formes sont les suivantes.
+
+### Abstraction de type (T-TAbs)
+
+$$
+\dfrac{\Gamma \vdash t : \tau \qquad \alpha \notin \mathrm{FTV}(\Gamma)}
+      {\Gamma \vdash \Lambda \alpha.\, t \;:\; \forall \alpha.\, \tau}
+$$
+
+La condition $\alpha \notin \mathrm{FTV}(\Gamma)$ garantit que $\alpha$ est
+bien « nouveau » (non contraint par le contexte), ce qui rend la quantification
+universelle valide.
+
+### Application de type (T-TApp)
+
+$$
+\dfrac{\Gamma \vdash t : \forall \alpha.\, \tau}
+      {\Gamma \vdash t\; [\sigma] \;:\; \tau[\alpha := \sigma]}
+$$
+
+On instancie $\alpha$ avec n'importe quel type $\sigma$, et on substitue $\sigma$
+partout où $\alpha$ apparaît dans $\tau$.
+
+## Encodages en System F — les types algébriques comme fonctions
+
+Tout comme le lambda calcul pur encode les données via les fonctions de Church,
+System F permet d'encoder les **types algébriques** directement dans les types
+universels — sans avoir à les ajouter au système.
+
+### Booléens
+
+$$
+\mathbf{Bool} \;=\; \forall \alpha.\, \alpha \to \alpha \to \alpha
+$$
+
+$$
+\mathbf{true}  \;=\; \Lambda \alpha.\, \lambda t{:}\alpha.\, \lambda f{:}\alpha.\, t
+\qquad\qquad
+\mathbf{false} \;=\; \Lambda \alpha.\, \lambda t{:}\alpha.\, \lambda f{:}\alpha.\, f
+$$
+
+Un booléen typé est une fonction polymorphe qui choisit entre deux branches de
+même type $\alpha$. Le **filtrage par motif** sur `Bool` en Haskell correspond
+exactement à l'application de cet encodage.
+
+### Entiers naturels
+
+$$
+\mathbf{Nat} \;=\; \forall \alpha.\, (\alpha \to \alpha) \to \alpha \to \alpha
+$$
+
+L'entier $\bar{n}$ applique $f$ exactement $n$ fois :
+
+$$
+\bar{n} \;=\; \Lambda \alpha.\, \lambda f{:}(\alpha \to \alpha).\, \lambda x{:}\alpha.\,
+\underbrace{f\; (f\; \cdots (f}_{n}\; x) \cdots)
+$$
+
+La **récursion structurelle** sur `Nat` en Haskell correspond au schéma
+$\lambda f.\, \lambda x.\, n\; f\; x$ : on fournit le cas de base ($x$) et le
+cas récursif ($f$), et le nombre déroule automatiquement la récursion.
+
+### Maybe (Option)
+
+$$
+\mathbf{Maybe}\; \tau \;=\; \forall \alpha.\, \alpha \to (\tau \to \alpha) \to \alpha
+$$
+
+$$
+\mathbf{Nothing}  \;=\; \Lambda \alpha.\, \lambda n{:}\alpha.\, \lambda j{:}(\tau \to \alpha).\, n
+$$
+$$
+\mathbf{Just}\; v \;=\; \Lambda \alpha.\, \lambda n{:}\alpha.\, \lambda j{:}(\tau \to \alpha).\, j\; v
+$$
+
+Un `Maybe τ` polymorphe est une fonction qui prend « ce qu'on fait en cas
+d'absence » et « ce qu'on fait en cas de présence », et applique le bon
+traitement. C'est exactement la structure du **filtrage par motif** sur `Maybe`
+en Haskell.
+
+## Le système de types de Haskell — System FC
+
+Le système de types de Haskell est une **extension riche** de System F. GHC
+implémente en interne une variante appelée **System FC** (*System F with
+Coercions*) qui ajoute :
+
+- **Classes de types** (`Num a =>`, `Eq a =>`) : des contraintes sur les
+  variables de type, vues dans la section Polymorphisme et classes de types.
+  Elles correspondent à des preuves implicites passées en argument.
+- **Kinds** : un système de types *pour les types*. Le kind de `Int` est `*`
+  (un type concret), le kind de `Maybe` est `* -> *` (un constructeur de type),
+  etc.
+- **GADTs** (*Generalized Algebraic Data Types*) : des types algébriques dont
+  les constructeurs peuvent affiner le type de retour — utiles pour encoder des
+  invariants statiques.
+- **Coercions** : des preuves d'égalité de types utilisées pour les `newtype`
+  et les optimisations de représentation.
+
+Malgré ces extensions, les fondements restent les mêmes : abstraction ($\lambda$,
+$\Lambda$), application, et règles de typage formelles héritées du STLC et de
+System F.
+
+## Récapitulatif — du lambda calcul à Haskell
+
+| Concept Haskell | Lambda calcul pur | STLC | System F |
+|---|---|---|---|
+| Fonctions `\x -> t` | $\lambda x.\, t$ | $\lambda x{:}\tau.\, t$ | Idem |
+| Application `f x` | $t_1\; t_2$ | Idem | Idem |
+| Variables libres / portée | $\mathrm{FV}(t)$ | Contexte $\Gamma$ | Contexte $\Gamma$ étendu |
+| Évaluation (réduction) | Bêta-réduction | Bêta-réduction typée | Bêta + réduction de type |
+| Types `Int`, `Bool` | Encodages de Church | Types de base $\iota$ | Idem |
+| Types flèches `a -> b` | — | $\tau_1 \to \tau_2$ | Idem |
+| Types algébriques | Encodages de Church | $\tau_1 \times \tau_2$, $\tau_1 + \tau_2$ | $\forall \alpha.\, \ldots$ |
+| Polymorphisme `a -> a` | — | Impossible | $\forall \alpha.\, \alpha \to \alpha$ |
+| Filtrage par motif | Sélection booléenne | Élimination de sommes | Élimination polymorphe |
+| Récursion | Combinateur $Y$ | `fix` (extension externe) | `fix` (extension externe) |
+| Classes de types | — | — | Preuves implicites (System FC) |
+
+La progression lambda calcul → STLC → System F illustre un principe général
+de l'informatique théorique : on part d'un noyau minimal et expressif, on
+identifie ses limitations, et on l'étend de façon **contrôlée** en préservant
+les propriétés souhaitées (sûreté, terminaison, expressivité). Haskell est le
+résultat de décennies de raffinement de ce processus.

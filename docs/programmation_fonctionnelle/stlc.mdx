@@ -1,0 +1,246 @@
+---
+sidebar_position: 13
+sidebar_label: STLC
+description: Le lambda calcul simplement typé
+---
+
+# Le lambda calcul simplement typé (STLC)
+
+## Motiver les types
+
+Dans le lambda calcul pur, rien n'interdit d'écrire des termes absurdes comme
+appliquer un booléen à un booléen, ou utiliser un entier là où une fonction est
+attendue. Ces termes ne correspondent à rien de sensé, mais le formalisme les
+accepte quand même.
+
+Le **lambda calcul simplement typé** (*Simply Typed Lambda Calculus*, **STLC**),
+introduit par Church en 1940, résout ce problème. Il étend le lambda calcul pur
+avec un système de **types** qui rejette statiquement les termes mal formés —
+avant même de tenter de les évaluer.
+
+Vous retrouverez ici les idées fondamentales du typage en Haskell, que vous
+connaissez déjà, formulées de façon mathématique précise. Ce formalisme explique
+pourquoi Haskell peut garantir l'absence d'erreurs de type à l'exécution pour
+tout programme qui compile.
+
+## Les types
+
+Dans le STLC, les **types** sont construits à partir de **types de base** et
+du **type flèche** :
+
+$$
+\tau \;::=\; \iota \;\mid\; \tau_1 \to \tau_2
+$$
+
+- $\iota$ est un **type de base** (un ensemble de valeurs primitives : `Bool`,
+  `Int`, `Char`, etc.).
+- $\tau_1 \to \tau_2$ est le **type flèche** : le type des fonctions qui prennent
+  un argument de type $\tau_1$ et retournent une valeur de type $\tau_2$.
+
+:::tip[Le type flèche est associatif à droite]
+$\tau_1 \to \tau_2 \to \tau_3$ signifie $\tau_1 \to (\tau_2 \to \tau_3)$ — une
+fonction qui retourne une fonction. C'est exactement la **curryfication** vue en
+Haskell : `Int -> Int -> Int` est le type d'une fonction à deux arguments
+entiers, vue comme une fonction qui retourne une fonction.
+:::
+
+## Le langage typé
+
+Dans le STLC, les abstractions portent une **annotation de type** sur le
+paramètre :
+
+$$
+t \;::=\; x \;\mid\; \lambda x{:}\tau.\, t \;\mid\; t\; t
+$$
+
+L'annotation $x{:}\tau$ déclare explicitement que le paramètre $x$ a le type
+$\tau$. En Haskell, vous écrivez `\(x :: Int) -> x * 2` pour la même chose —
+mais le plus souvent vous laissez le compilateur l'inférer.
+
+## Contexte de typage
+
+Pour typer un terme, il faut connaître les types des **variables libres** qu'il
+contient. Un **contexte de typage** $\Gamma$ est une liste d'associations
+variable–type :
+
+$$
+\Gamma \;::=\; \cdot \;\mid\; \Gamma,\; x : \tau
+$$
+
+- $\cdot$ est le contexte **vide**.
+- $\Gamma, x : \tau$ étend le contexte en déclarant que la variable $x$ a le
+  type $\tau$.
+
+On note $x : \tau \in \Gamma$ pour dire que l'association $x : \tau$ figure
+dans $\Gamma$.
+
+En Haskell, ce contexte correspond à l'environnement de typage que le compilateur
+construit automatiquement. Quand vous écrivez :
+
+```haskell
+double :: Int -> Int
+double x = x * 2
+```
+
+le compilateur utilise implicitement un contexte contenant `double : Int -> Int`,
+`x : Int`, et toutes les autres définitions en portée.
+
+## Règles de typage
+
+Un **jugement de typage** $\Gamma \vdash t : \tau$ se lit « dans le contexte
+$\Gamma$, le terme $t$ a le type $\tau$ ». Les règles qui permettent de
+construire ces jugements sont au nombre de trois.
+
+### Règle des variables (Var)
+
+$$
+\dfrac{x : \tau \in \Gamma}{\Gamma \vdash x : \tau}
+$$
+
+Une variable a le type que lui attribue le contexte. C'est la règle la plus
+simple : si on a déclaré que $x$ est de type $\tau$, alors $x$ a le type $\tau$.
+
+### Règle de l'abstraction (Abs)
+
+$$
+\dfrac{\Gamma,\; x : \tau_1 \vdash t : \tau_2}{\Gamma \vdash \lambda x{:}\tau_1.\, t \;:\; \tau_1 \to \tau_2}
+$$
+
+Pour typer une abstraction $\lambda x{:}\tau_1.\, t$, on ajoute $x : \tau_1$ au
+contexte et on vérifie que le corps $t$ a le type $\tau_2$. La fonction
+résultante a alors le type $\tau_1 \to \tau_2$.
+
+C'est ce que fait Haskell quand il type `\x -> x * 2` : il suppose `x :: Int`
+dans le contexte, vérifie que `x * 2 :: Int`, et en conclut que
+`\x -> x * 2 :: Int -> Int`.
+
+### Règle de l'application (App)
+
+$$
+\dfrac{\Gamma \vdash t_1 : \tau_1 \to \tau_2 \qquad \Gamma \vdash t_2 : \tau_1}{\Gamma \vdash t_1\; t_2 : \tau_2}
+$$
+
+Pour typer une application $t_1\; t_2$, il faut que $t_1$ soit de type
+$\tau_1 \to \tau_2$ et que $t_2$ soit de type $\tau_1$. Le résultat a le type
+$\tau_2$.
+
+C'est la règle qui détecte les erreurs de type comme passer un `String` là
+où un `Int` est attendu.
+
+### Exemple de dérivation
+
+Voici la dérivation complète du jugement
+$\cdot \vdash (\lambda x{:}\mathbf{Int}.\, x)\; 5 : \mathbf{Int}$ :
+
+$$
+\dfrac{
+  \dfrac{
+    \dfrac{x : \mathbf{Int} \;\in\; \{x : \mathbf{Int}\}}
+      {\{x : \mathbf{Int}\} \vdash x : \mathbf{Int}}
+  }{\cdot \vdash \lambda x{:}\mathbf{Int}.\, x \;:\; \mathbf{Int} \to \mathbf{Int}}
+  \qquad
+  \dfrac{}{\cdot \vdash 5 : \mathbf{Int}}
+}{\cdot \vdash (\lambda x{:}\mathbf{Int}.\, x)\; 5 : \mathbf{Int}}
+$$
+
+Chaque nœud de l'arbre correspond à l'application d'une règle. C'est
+exactement ce que le compilateur effectue (de façon algorithmique) quand il vérifie les
+types de votre code.
+
+## Sûreté des types
+
+Le système de types du STLC satisfait deux propriétés fondamentales :
+
+1. **Progress** : un terme bien typé est soit une valeur (forme normale), soit
+   peut effectuer un pas de réduction. Il ne se « bloque » jamais sans raison.
+
+2. **Preservation** (*subject reduction*) : si $\Gamma \vdash t : \tau$ et
+   $t \to_\beta t'$, alors $\Gamma \vdash t' : \tau$. La réduction **préserve**
+   le type du terme.
+
+Ensemble, ces deux propriétés garantissent qu'un programme bien typé
+s'exécute correctement sans jamais rencontrer d'erreur de type. C'est le
+fondement théorique de la garantie offerte par Haskell : **si ça compile, il
+n'y aura pas d'erreur de type à l'exécution**.
+
+## Normalisation forte
+
+Une propriété remarquable distingue le STLC du lambda calcul pur : **tout
+terme bien typé termine**. Il n'existe aucune séquence de réduction infinie
+pour un terme bien typé. C'est la **normalisation forte**.
+
+Rappelez-vous le terme $\Omega = (\lambda x.\, x\; x)\; (\lambda x.\, x\; x)$
+qui diverge dans le lambda calcul pur. Il est impossible de lui donner un type
+simple dans le STLC — c'est précisément le système de types qui exclut ce
+genre de boucle infinie.
+
+:::caution[Pas Turing-complet]
+La normalisation forte signifie que le STLC pur ne peut pas exprimer toutes
+les fonctions calculables (il ne peut pas encoder la récursion générale). Pour
+récupérer la récursion, Haskell ajoute un opérateur `fix` et des types
+récursifs au-delà du STLC de base.
+:::
+
+## Types produits et types sommes
+
+On peut étendre le STLC avec des **types composés**, qui correspondent
+exactement aux types algébriques de la section Types algébriques.
+
+### Types produits — $\tau_1 \times \tau_2$
+
+Un type produit contient une valeur de type $\tau_1$ **et** une valeur de type
+$\tau_2$ simultanément. Les règles d'introduction et d'élimination sont :
+
+$$
+\dfrac{\Gamma \vdash t_1 : \tau_1 \qquad \Gamma \vdash t_2 : \tau_2}
+      {\Gamma \vdash (t_1,\, t_2) : \tau_1 \times \tau_2}
+\qquad\qquad
+\dfrac{\Gamma \vdash t : \tau_1 \times \tau_2}
+      {\Gamma \vdash \mathbf{fst}\; t : \tau_1}
+$$
+
+En Haskell : `(True, 42) :: (Bool, Int)`. Le type `data Point = Point Double Double`
+est un type produit avec deux `Double`.
+
+On dit « produit » parce que le nombre de valeurs possibles est le *produit
+cartésien* des valeurs de $\tau_1$ et $\tau_2$ — la même terminologie que dans
+la section Types algébriques.
+
+### Types sommes — $\tau_1 + \tau_2$
+
+Un type somme contient une valeur qui est **soit** de type $\tau_1$, **soit** de
+type $\tau_2$. Les règles d'introduction sont :
+
+$$
+\dfrac{\Gamma \vdash t : \tau_1}
+      {\Gamma \vdash \mathbf{Left}\; t : \tau_1 + \tau_2}
+\qquad\qquad
+\dfrac{\Gamma \vdash t : \tau_2}
+      {\Gamma \vdash \mathbf{Right}\; t : \tau_1 + \tau_2}
+$$
+
+En Haskell : `Either Bool Int` est un type somme. `Maybe a = Nothing | Just a`
+est un type somme entre « rien » et « quelque chose de type `a` ». Le
+**filtrage par motif** que vous utilisez en Haskell correspond à la règle
+d'**élimination** du type somme : on inspecte quel constructeur a été utilisé
+et on traite chaque cas séparément.
+
+## Limitation — pas de polymorphisme
+
+Le STLC est expressif, mais chaque terme a un **type fixe et concret**. On ne
+peut pas écrire une seule fonction générique qui fonctionne pour tous les types.
+
+La fonction identité doit être typée séparément pour chaque type :
+
+$$
+\lambda x{:}\mathbf{Int}.\, x \;:\; \mathbf{Int} \to \mathbf{Int}
+\qquad\qquad
+\lambda x{:}\mathbf{Bool}.\, x \;:\; \mathbf{Bool} \to \mathbf{Bool}
+\qquad\qquad
+\cdots
+$$
+
+En Haskell, vous avez vu dans la section Polymorphisme qu'on peut écrire une
+seule fonction `id :: a -> a` qui fonctionne pour **tout** type `a`. Le STLC
+ne peut pas exprimer cela — c'est précisément ce que résout **System F**, le
+sujet de la prochaine section.

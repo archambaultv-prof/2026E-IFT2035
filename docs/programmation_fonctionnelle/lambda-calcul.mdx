@@ -1,0 +1,278 @@
+---
+sidebar_position: 12
+sidebar_label: Lambda calcul
+description: Le lambda calcul de Church
+---
+
+# Le lambda calcul
+
+## Pourquoi un formalisme mathématique ?
+
+Tout au long de ce cours, vous avez utilisé des expressions, des fonctions
+anonymes, des variables et d'autres concepts de la programmation fonctionnelle.
+Ces concepts ne sont pas des inventions de Haskell : ils reposent
+sur un système mathématique précis inventé par **Alonzo Church** en 1936, le
+**lambda calcul** ($\lambda$-calcul).
+
+Le lambda calcul est remarquablement minimaliste : il ne contient que **trois**
+constructions syntaxiques, et pourtant il est **Turing-complet** — tout ce
+qu'un ordinateur peut calculer peut être exprimé dans ce formalisme.
+
+:::info[Contexte historique]
+En 1936, Church et Turing ont tous deux proposé une réponse à la question
+« Qu'est-ce qu'un calcul ? » : Turing avec ses machines abstraites, Church avec
+le lambda calcul. Ces deux formalismes ont été prouvés **équivalents** (thèse
+de Church-Turing). Les langages fonctionnels sont des descendants directs du
+lambda calcul.
+:::
+
+## Syntaxe — trois règles suffisent
+
+Un **terme** du lambda calcul (noté $t$, $u$, $v$, …) est défini inductivement
+par la grammaire suivante :
+
+$$
+t \;::=\; x \;\mid\; \lambda x.\, t \;\mid\; t\; t
+$$
+
+Il n'y a que trois formes :
+
+| Forme | Notation | Signification |
+|---|---|---|
+| **Variable** | $x$ | Un nom (identifiant) |
+| **Abstraction** | $\lambda x.\, t$ | Fonction anonyme de paramètre $x$ et de corps $t$ |
+| **Application** | $t_1\; t_2$ | Appliquer la fonction $t_1$ à l'argument $t_2$ |
+
+C'est tout. Pas d'entiers, pas de booléens, pas d'opérateurs arithmétiques —
+juste des variables et des fonctions.
+
+### Lien avec Haskell
+
+L'abstraction $\lambda x.\, t$ correspond exactement à la **lambda** de Haskell
+que vous avez étudiée dans la section sur les fonctions d'ordre supérieur. Le
+symbole `\` de Haskell est délibérément choisi pour ressembler à $\lambda$ :
+
+| Lambda calcul | Haskell |
+|---|---|
+| $\lambda x.\, x$ | `\x -> x` |
+| $\lambda x.\, \lambda y.\, x$ | `\x y -> x` |
+| $(\lambda x.\, x \times 2)\; 5$ | `(\x -> x * 2) 5` |
+
+L'application est **associative à gauche** : $f\; g\; x$ signifie $(f\; g)\; x$.
+L'abstraction s'étend vers la **droite** : $\lambda x.\, \lambda y.\, x + y$
+signifie $\lambda x.\, (\lambda y.\, x + y)$.
+
+## Variables libres et liées
+
+Dans un terme $\lambda x.\, t$, l'abstracteur $\lambda x$ **lie** la variable
+$x$ dans le corps $t$. Toute occurrence de $x$ dans $t$ est **liée** par cet
+abstracteur. Une variable qui n'est liée par aucun abstracteur englobant est
+**libre**.
+
+| Terme | Variables liées | Variables libres |
+|---|---|---|
+| $\lambda x.\, x$ | $x$ | aucune |
+| $\lambda x.\, y$ | $x$ | $y$ |
+| $\lambda x.\, \lambda y.\, x$ | $x$, $y$ | aucune |
+| $(\lambda x.\, x)\; y$ | $x$ (dans l'abstraction) | $y$ |
+
+Vous retrouvez ici la notion de **portée lexicale** étudiée dans la section
+Portée et fermetures. En Haskell, `\x -> x + y` lie `x` et laisse `y` libre —
+`y` doit être défini dans l'environnement englobant.
+
+L'ensemble des variables libres d'un terme $t$ est noté $\mathrm{FV}(t)$ et se
+calcule inductivement :
+
+$$
+\mathrm{FV}(x) = \{x\}
+\qquad
+\mathrm{FV}(\lambda x.\, t) = \mathrm{FV}(t) \setminus \{x\}
+\qquad
+\mathrm{FV}(t_1\; t_2) = \mathrm{FV}(t_1) \cup \mathrm{FV}(t_2)
+$$
+
+## Alpha-équivalence
+
+Deux termes qui ne diffèrent que par le **nom** de leurs variables liées sont
+considérés identiques. Cette relation s'appelle l'**alpha-équivalence**
+(notée $=_\alpha$) :
+
+$$
+\lambda x.\, x \;=_\alpha\; \lambda y.\, y \;=_\alpha\; \lambda z.\, z
+$$
+
+Ces trois termes représentent tous la même fonction identité. C'est l'analogue
+du fait qu'en mathématiques, $f(x) = x^2$ et $f(t) = t^2$ décrivent la même
+fonction : le nom de la variable muette est sans importance.
+
+## Bêta-réduction — la règle de calcul
+
+La règle fondamentale du lambda calcul est la **bêta-réduction**
+($\beta$-réduction). Elle formalise l'application d'une fonction à un argument
+en substituant l'argument à la variable liée dans le corps :
+
+$$
+(\lambda x.\, t)\; u \;\longrightarrow_\beta\; t[x := u]
+$$
+
+La notation $t[x := u]$ signifie « remplacer toutes les occurrences libres de
+$x$ par $u$ dans $t$ ».
+
+:::info[Exemples de bêta-réductions]
+
+$$
+(\lambda x.\, x)\; 5 \;\to_\beta\; 5
+$$
+
+$$
+(\lambda x.\, x \times 2)\; 3 \;\to_\beta\; 3 \times 2 = 6
+$$
+
+$$
+(\lambda x.\, \lambda y.\, x)\; a\; b \;\to_\beta\; (\lambda y.\, a)\; b \;\to_\beta\; a
+$$
+
+:::
+
+Vous reconnaissez le processus d'**évaluation** étudié dans la section
+Expressions et valeurs : réduire une expression jusqu'à une valeur, c'est
+exactement enchaîner des bêta-réductions jusqu'à ce qu'aucune ne soit plus
+applicable.
+
+## Formes normales
+
+Un terme qui ne contient **aucun redex** (c'est-à-dire aucun sous-terme de la
+forme $(\lambda x.\, t)\; u$) est en **forme normale bêta**. C'est l'équivalent
+d'une **valeur** en Haskell.
+
+| Terme | Forme normale | Commentaire |
+|---|---|---|
+| $5$ | $5$ | Déjà une valeur |
+| $(\lambda x.\, x)\; 5$ | $5$ | Après une réduction |
+| $\lambda x.\, x$ | $\lambda x.\, x$ | Une fonction est une valeur |
+
+:::caution[Théorème de Church-Rosser — confluence]
+Si un terme peut être réduit de plusieurs façons (en commençant par des redex
+différents), tous les chemins convergent vers **la même** forme normale. L'ordre
+dans lequel on effectue les réductions ne change pas le résultat final. Cette
+propriété justifie l'**évaluation paresseuse** de Haskell : peu importe l'ordre
+d'évaluation, le résultat est le même.
+:::
+
+## Encodages de Church — les données comme fonctions
+
+Puisque le lambda calcul pur ne contient que des fonctions, comment représente-
+t-on les données ? Church a montré qu'on peut **encoder** n'importe quelle
+structure de données sous forme de fonctions.
+
+### Booléens de Church
+
+$$
+\mathbf{true} \;=\; \lambda t.\, \lambda f.\, t
+\qquad\qquad
+\mathbf{false} \;=\; \lambda t.\, \lambda f.\, f
+$$
+
+Un booléen de Church est une **fonction qui prend deux arguments et retourne
+l'un d'eux**. C'est directement un `if-then-else` :
+
+$$
+\mathbf{if}\; b\; \mathbf{then}\; t\; \mathbf{else}\; f \;=\; b\; t\; f
+$$
+
+:::info[Vérification]
+$$
+\mathbf{true}\; a\; b
+= (\lambda t.\, \lambda f.\, t)\; a\; b
+\to_\beta (\lambda f.\, a)\; b
+\to_\beta a
+\quad \checkmark
+$$
+:::
+
+### Entiers de Church
+
+$$
+\bar{0} \;=\; \lambda f.\, \lambda x.\, x
+\qquad
+\bar{1} \;=\; \lambda f.\, \lambda x.\, f\; x
+\qquad
+\bar{2} \;=\; \lambda f.\, \lambda x.\, f\; (f\; x)
+$$
+
+Le chiffre $n$ est représenté comme une **fonction qui applique $f$ exactement
+$n$ fois** à $x$. L'idée : l'entier $n$ *est* l'action de répéter $n$ fois.
+
+La fonction successeur ($\bar{n} \mapsto \overline{n+1}$) s'écrit :
+
+$$
+\mathbf{succ} \;=\; \lambda n.\, \lambda f.\, \lambda x.\, f\; (n\; f\; x)
+$$
+
+Ces fonctions d'ordre supérieur sur les entiers de Church font directement écho
+aux **fonctions d'ordre supérieur** étudiées en Haskell.
+
+## Récursion et combinateur Y
+
+Comment définir des fonctions récursives dans un système où toutes les fonctions
+sont anonymes et ne peuvent donc pas s'appeler par leur nom ? La réponse est le
+**combinateur à point fixe**, découvert par Haskell Curry :
+
+$$
+Y \;=\; \lambda f.\; (\lambda x.\; f\; (x\; x))\; (\lambda x.\; f\; (x\; x))
+$$
+
+Ce terme satisfait la propriété remarquable :
+
+$$
+Y\; g \;\to_\beta\; g\; (Y\; g)
+$$
+
+Pour comprendre ce que ça signifie concrètement, imaginez que vous voulez
+écrire la factorielle sans pouvoir nommer la fonction. L'astuce est de se
+demander : « à quoi ressemblerait la factorielle si on pouvait lui passer
+elle-même en argument ? » On écrit donc une *fonction auxiliaire* `etape` qui reçoit une
+fonction `rec` représentant la factorielle, et s'en sert pour se définir :
+
+```
+etape = \rec -> \n -> if n == 0 then 1 else n * rec (n - 1)
+```
+
+Il reste à trouver une vraie fonction `factorielle` telle que
+`factorielle = etape factorielle` — c'est-à-dire un **point fixe** de `etape`.
+C'est exactement ce que fait $Y$ : `Y etape` produit un terme qui, lorsqu'on le
+réduit, se comporte comme `etape (Y etape)`, ce qui relance `etape` avec lui-même
+en argument. La récursion émerge de cette auto-application.
+
+En résumé : $Y$ « boucle » une fonction auxiliaire sur elle-même pour simuler la récursion là
+où les noms sont interdits.
+
+:::info[En Haskell]
+Haskell dispose d'une fonction `fix` dans `Data.Function` :
+
+```haskell
+import Data.Function (fix)
+
+factorielle :: Integer -> Integer
+factorielle = fix (\rec n -> if n == 0 then 1 else n * rec (n - 1))
+```
+
+En pratique, la récursion directe est plus lisible — mais `fix` permet de
+comprendre son fondement théorique.
+:::
+
+## Limites du lambda calcul pur
+
+Le lambda calcul pur est remarquablement expressif, mais il a des limitations
+pratiques :
+
+1. **Pas de types** : rien n'empêche d'appliquer un entier à un autre entier,
+   ce qui n'a aucun sens.
+2. **Divergence possible** : certains termes n'ont pas de forme normale. Par
+   exemple, $\Omega = (\lambda x.\, x\; x)\; (\lambda x.\, x\; x)$ se réduit
+   indéfiniment vers lui-même.
+3. **Raisonnement difficile** : sans types, il est difficile de prouver qu'un
+   programme est correct ou qu'il termine.
+
+Ces limitations motivent naturellement l'introduction des types — c'est l'objet
+du **lambda calcul simplement typé**, étudié dans la prochaine section.
