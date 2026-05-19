@@ -1,0 +1,98 @@
+---
+sidebar_position: 2
+sidebar_label: "Ex. 2 — Types et arithmétique"
+description: Types entiers et flottants en C, débordement, conversions implicites et sizeof.
+---
+
+# Exercice 2 — Types et arithmétique
+
+## Partie A — Division entière et flottante
+
+1. Prédire ce qu'affiche chaque `printf` ci-dessous, **sans compiler**, puis
+   vérifier :
+
+   ```c
+   int a = 7, b = 2;
+   printf("%d\n",   a / b);
+   printf("%d\n",   a % b);
+   printf("%f\n",   a / b);
+   printf("%f\n",   (double)a / b);
+   printf("%f\n",   a / (double)b);
+   ```
+
+2. En Haskell, `div 7 2` vaut `3` et `7 / 2` vaut `3.5` (avec le type
+   `Double`). Quelle est la différence fondamentale avec le comportement
+   de C ?
+
+## Partie B — Débordement (*overflow*)
+
+3. Qu'affiche le programme suivant ? Expliquer pourquoi.
+
+   ```c
+   #include <stdio.h>
+
+   int main(void) {
+       char c = 127;
+       c = c + 1;
+       printf("%d\n", c);   /* a) */
+
+       unsigned char u = 255;
+       u = u + 1;
+       printf("%d\n", u);   /* b) */
+
+       int n = 2147483647;
+       n = n + 1;
+       printf("%d\n", n);   /* c) */
+
+       return 0;
+   }
+   ```
+
+   :::caution
+   Le débordement d'un entier **signé** est un comportement indéfini en C
+   (la norme ne garantit pas le résultat). En pratique, la valeur « s'enroule »
+   sur la plupart des architectures, mais ce comportement ne doit jamais être
+   utilisé intentionnellement.
+   :::
+
+4. Comment éviter les problèmes de portabilité liés à la taille des types
+   entiers ? Quel en-tête C fournit des types à taille garantie ?
+
+## Partie C — `sizeof`
+
+5. Remplir le tableau suivant en utilisant `sizeof` (sur un système 64 bits) :
+
+   | Expression | Taille attendue |
+   |---|---|
+   | `sizeof(char)` | ? |
+   | `sizeof(short)` | ? |
+   | `sizeof(int)` | ? |
+   | `sizeof(long)` | ? |
+   | `sizeof(long long)` | ? |
+   | `sizeof(float)` | ? |
+   | `sizeof(double)` | ? |
+   | `sizeof(int*)` | ? |
+
+   Quel spécificateur de format `printf` utilise-t-on pour afficher un
+   `sizeof` ?
+
+## Partie D — Conversions implicites
+
+6. Prédire ce qu'affiche le code suivant, puis expliquer chaque conversion :
+
+   ```c
+   int   i = 300;
+   char  c = i;         /* conversion implicite */
+   printf("%d\n", c);   /* a) */
+
+   double d = 3.99;
+   int    j = d;        /* conversion implicite */
+   printf("%d\n", j);   /* b) */
+
+   int    x = -1;
+   unsigned int u = x;  /* conversion implicite */
+   printf("%u\n", u);   /* c) */
+   ```
+
+7. Le compilateur avec `-Wall` émet-il des avertissements pour le code
+   ci-dessus ? Lesquels ? Pourquoi est-il important de les lire ?

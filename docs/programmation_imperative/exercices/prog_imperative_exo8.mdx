@@ -1,0 +1,89 @@
+---
+sidebar_position: 8
+sidebar_label: "Ex. 8 — Questions conceptuelles"
+description: Questions à réponse courte sur les concepts fondamentaux de la programmation impérative en C.
+---
+
+# Exercice 8 — Questions conceptuelles
+
+Pour chaque question, une réponse de **une à trois phrases** suffit.
+
+## Variables et état
+
+1. En Haskell, `x = 10` est une **liaison** immuable. En C, `int x = 10;`
+   est une **déclaration de variable**. Quelle est la différence fondamentale
+   entre les deux, du point de vue du modèle mémoire ?
+
+2. Qu'est-ce qu'un **effet de bord** ? Donner un exemple d'effet de bord en C
+   qui serait impossible à écrire en Haskell pur. Pourquoi les effets de bord
+   rendent-ils les programmes plus difficiles à raisonner ?
+
+3. En C, l'ordre des instructions est **critique**. Donner un exemple concret
+   de deux lignes de code qui produisent des résultats différents selon
+   qu'on les exécute dans l'ordre A→B ou B→A.
+
+## Types et mémoire
+
+4. Expliquer la différence entre `int`, `unsigned int`, et `int*`. Pour
+   chacun, donner un exemple d'usage typique.
+
+5. Qu'est-ce que le **comportement indéfini** (*undefined behavior*) en C ?
+   Donner deux exemples. Pourquoi le compilateur a-t-il le droit de générer
+   du code arbitraire dans ces cas ?
+
+6. Quelles sont les quatre zones mémoire d'un programme C en cours
+   d'exécution ? Pour chaque zone, donner un exemple de ce qu'elle contient
+   et indiquer qui est responsable de la gérer.
+
+## Portée et durée de vie
+
+7. Quelle est la différence entre la **portée** (*scope*) d'une variable et
+   sa **durée de vie** (*lifetime*) ? Donner un exemple où les deux diffèrent
+   (indice : variable `static` locale).
+
+8. Qu'est-ce que l'**ombrage** (*shadowing*) ? Pourquoi est-il considéré
+   comme une source de bugs ? Quelle option de compilateur permet de le
+   détecter ?
+
+## Fonctions et passage de paramètres
+
+9. En C, les tableaux sont passés aux fonctions « par pointeur » en pratique,
+   mais les `struct` sont passés par valeur. Expliquer la différence et ses
+   conséquences.
+
+10. Qu'est-ce qu'un **dangling pointer** (*pointeur pendant*) ? Donner un
+    exemple de code C qui en produit un. Quel comportement peut-on observer ?
+
+11. Expliquer pourquoi la fonction suivante est dangereuse et ce qui pourrait
+    se passer lors de son utilisation :
+
+    ```c
+    char *lire_nom(void) {
+        char tampon[64];
+        scanf("%63s", tampon);
+        return tampon;
+    }
+    ```
+
+## Programmation structurée
+
+12. Dijkstra a dit que l'utilisation de `goto` rend impossible de raisonner
+    sur un programme sans en simuler l'exécution. Expliquer cet argument
+    avec un exemple concret.
+
+13. Quelle est la différence entre `break` et `continue` dans une boucle
+    `while` ? Donner un exemple pour chacun.
+
+14. En Haskell, la récursion est le seul mécanisme de répétition. En C, on
+    dispose à la fois des boucles et de la récursion. Dans quels cas préfère-t-on
+    chacun en C ? Y a-t-il des cas où la récursion est risquée en C ?
+
+## Comparaison de paradigmes
+
+15. Lister **trois différences fondamentales** entre Haskell et C du point de
+    vue de la gestion de la mémoire.
+
+16. On dit que la programmation impérative favorise le raisonnement
+    « comment » (*how*) tandis que la programmation fonctionnelle favorise le
+    raisonnement « quoi » (*what*). Illustrer cette distinction avec un
+    exemple concret — par exemple, le calcul de la somme d'une liste d'entiers.

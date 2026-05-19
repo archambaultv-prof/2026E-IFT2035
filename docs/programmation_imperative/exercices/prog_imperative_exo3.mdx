@@ -1,0 +1,126 @@
+---
+sidebar_position: 3
+sidebar_label: "Ex. 3 — Opérateurs, switch et goto"
+description: Incréments et effets de bord, fall-through dans switch, goto pour la gestion d'erreurs — spécificités de C par rapport à Java.
+---
+
+# Exercice 3 — Opérateurs, `switch` et `goto`
+
+Les exercices ci-dessous portent sur des comportements de C qui **diffèrent
+de Java** ou qui n'ont pas d'équivalent en Java.
+
+## Partie A — Pré- et post-incrémentation
+
+1. Prédire ce qu'affiche chaque `printf`, puis vérifier.
+
+   ```c
+   int i = 5;
+   printf("%d\n", i++);  /* a) — que vaut i immédiatement après ? */
+   printf("%d\n", i);    /* b) */
+   printf("%d\n", ++i);  /* c) — que vaut i immédiatement après ? */
+   printf("%d\n", i);    /* d) */
+   ```
+
+2. En Java, le résultat de `a[i] = i++` est **défini** par la spécification
+   (l'index est évalué avant l'incrémentation). En C, ce n'est **pas** le cas.
+
+   ```c
+   int i = 1;
+   int a[] = {10, 20, 30};
+   a[i] = i++;
+   printf("%d %d %d  i=%d\n", a[0], a[1], a[2], i);
+   ```
+
+   a. Compiler et exécuter avec `gcc`. Obtient-on le même résultat qu'en Java ?
+
+   b. Compiler avec `gcc -O2`. Le résultat change-t-il ? Pourquoi ?
+
+   c. Ce code est un **comportement indéfini** en C. Expliquer ce que cela
+      signifie et pourquoi le compilateur est en droit de générer un code
+      arbitraire — y compris du code qui formate le disque dur.
+
+3. L'idiome suivant est classique dans le code C de bas niveau. Décrypter
+   ce que fait chaque partie.
+
+   ```c
+   void ma_strcpy(char *dest, const char *src) {
+       while ((*dest++ = *src++))
+           ;
+   }
+   ```
+
+   - Que fait l'expression `*dest++ = *src++` ?
+   - Pourquoi la boucle se termine-t-elle au bon moment ?
+   - Ce code serait illégal en Java. Pourquoi ?
+   - Quel est le risque principal de cette fonction en C ?
+
+## Partie B — `switch` et fall-through
+
+4. Le code suivant contient des bugs liés au **fall-through** (absence de
+   `break`). Déterminer précisément ce qui s'affiche lors des appels
+   `afficher_jour(3)` et `afficher_jour(6)`.
+
+   ```c
+   void afficher_jour(int jour) {
+       switch (jour) {
+           case 1: printf("Lundi\n");
+           case 2: printf("Mardi\n");
+           case 3: printf("Mercredi\n");
+           case 4: printf("Jeudi\n");
+           case 5: printf("Vendredi\n");
+               printf("Jour ouvrable\n");
+               break;
+           case 6: printf("Samedi\n");
+           case 7: printf("Dimanche\n");
+               printf("Week-end\n");
+               break;
+       }
+   }
+   ```
+
+5. Le fall-through peut aussi être **intentionnel**. Expliquer pourquoi il
+   l'est dans la fonction suivante, puis la réécrire avec `if` / `else if`.
+   Laquelle est plus lisible ?
+
+   ```c
+   int nb_jours(int mois) {  /* 1 = janvier, ..., 12 = décembre */
+       switch (mois) {
+           case 2:
+               return 28;
+           case 4: case 6: case 9: case 11:
+               return 30;
+           default:
+               return 31;
+       }
+   }
+   ```
+
+   GCC peut émettre un avertissement pour le fall-through **non** intentionnel
+   avec `-Wimplicit-fallthrough`. Comment signaler un fall-through intentionnel
+   pour supprimer cet avertissement sans le désactiver globalement ?
+
+## Partie C — Idiomes C à décrypter
+
+6. Chacun des idiomes suivants est courant en C mais n'a pas d'équivalent
+   direct en Java. Expliquer ce que fait chacun et pourquoi Java n'en a
+   pas besoin.
+
+   a. Boucle sur une chaîne jusqu'au `'\0'` :
+
+      ```c
+      for (const char *p = s; *p; p++) { /* traiter *p */ }
+      ```
+
+   b. Initialisation partielle d'une structure :
+
+      ```c
+      typedef struct {
+          int x;
+          int y;
+      } Point;
+
+      Point p = {0};
+      ```
+
+      Les champs non mentionnés sont-ils initialisés ? À quelle valeur ?
+      Comparer avec `Point p;` (sans initialiseur).

@@ -1,0 +1,75 @@
+---
+sidebar_position: 9
+sidebar_label: "Ex. 9 — Réécriture de code C"
+description: Réécrire un programme C en style structuré strict (sans break/continue/goto), puis en style fonctionnel sans assignation.
+---
+
+# Exercice 9 — Réécriture de code C
+
+## Le code original
+
+Considérons le programme C suivant, qui lit des caractères sur l'entrée
+standard, élimine les caractères consécutifs répétés et s'arrête après la
+première ligne vide :
+
+```c
+#include <stdio.h>
+
+void main(void)
+{   /* Élimine les caractères répétés et
+     * stoppe après la première ligne vide. */
+    int c;
+    int last = EOF;
+    while ((c = getchar()) != EOF) {
+        if (c == last) {
+            if (c == '\n') {
+                break;
+            } else {
+                continue;
+            }
+        }
+        putchar(last = c);
+    }
+}
+```
+
+Avant de commencer, s'assurer de bien comprendre le comportement du programme
+sur quelques exemples :
+
+- entrée `"aabbcc\n"` → sortie `"abc\n"`
+- entrée `"abc\n\ndef"` → sortie `"abc\n"` (s'arrête à la ligne vide)
+- entrée `"aaa\n"` → sortie `"\n"` (la première occurrence du `\n` est émise)
+
+## Partie A — Style structuré strict
+
+Réécrire le code en **style structuré strict**, c'est-à-dire sans utiliser
+`continue`, `break` ni `goto`. La boucle `while` et l'assignation restent
+autorisées.
+
+:::tip[Marche à suivre]
+Procéder en **petits pas** : à chaque étape, ne modifier qu'une seule
+construction (par exemple, éliminer d'abord le `break`, puis le `continue`) et
+vérifier que la sémantique est préservée avant de passer à l'étape suivante.
+:::
+
+## Partie B — Style fonctionnel
+
+À partir du code de la Partie A (ou directement depuis le code original),
+réécrire le code en **style fonctionnel**, c'est-à-dire :
+
+- sans opération d'assignation, sauf dans les initialisations
+  (par exemple `int last = EOF` est permis) ;
+- sans `while`, `break` ni `continue` ;
+- en introduisant une ou plusieurs **fonctions récursives auxiliaires**.
+
+:::tip[Marche à suivre]
+Procéder par petits pas en montrant clairement que chaque transformation
+préserve la sémantique du code précédent, sans qu'il soit nécessaire de
+comprendre le programme dans son ensemble.
+:::
+
+:::note[Pour aller plus loin]
+La version fonctionnelle est-elle équivalente à la version impérative dans tous
+les cas, y compris pour des entrées de grande taille ? Quel problème
+pratique pourrait se poser ?
+:::

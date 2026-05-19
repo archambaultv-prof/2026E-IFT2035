@@ -1,0 +1,105 @@
+---
+sidebar_position: 1
+sidebar_label: "Ex. 1 — Premiers pas en C"
+description: Structure d'un programme C, compilation avec gcc, printf et types de base.
+---
+
+# Exercice 1 — Premiers pas en C
+
+## Le programme minimal
+
+Voici un programme C complet :
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    printf("Bonjour!\n");
+    return 0;
+}
+```
+
+## Partie A — La chaîne de compilation
+
+En Java, `javac MonProgramme.java` produit un `.class` exécuté par la JVM.
+En C, `gcc` fait plusieurs choses en une seule commande.
+
+1. Exécuter les commandes suivantes une à une et indiquer ce que produit
+   chacune (type de fichier généré, contenu approximatif) :
+
+   ```sh
+   gcc -E prog.c            # a) préprocesseur seulement
+   gcc -S prog.c            # b) jusqu'à l'assembleur
+   gcc -c prog.c            # c) jusqu'au code objet
+   gcc -Wall -o prog prog.c # d) compilation complète
+   ./prog
+   ```
+
+   Quelle étape de cette chaîne n'existe pas en Java ?
+
+2. Compiler et exécuter le programme. Que produit `-Wall` ? Ajouter
+   volontairement deux anomalies et observer les avertissements :
+
+   ```c
+   int main(void) {
+       int inutile = 42;         /* variable jamais utilisée */
+       printf("Bonjour!\n");
+       /* return manquant */
+   }
+   ```
+
+   En Java, certaines de ces anomalies seraient des **erreurs** de compilation.
+   Pourquoi C est-il plus permissif ? Qu'est-ce que cela implique pour les
+   programmeurs C ?
+
+3. Supprimer `#include <stdio.h>` et recompiler. Que se passe-t-il ?
+
+   En Java, `System.out.println` fonctionne sans `import`. En C, `printf`
+   nécessite `#include <stdio.h>`. Expliquer la différence : que fait
+   réellement `#include` (indice : option `-E`) et pourquoi Java n'en a
+   pas besoin ?
+
+## Partie B — Variables et printf
+
+4. Compléter le programme suivant pour qu'il s'exécute sans erreur, en
+   choisissant le bon **spécificateur de format** pour chaque type :
+
+   ```c
+   #include <stdio.h>
+
+   int main(void) {
+       int    age     = 21;
+       double taille  = 1.75;
+       char   initiale = 'A';
+
+       printf("Âge     : ___\n", age);      /* compléter ___ */
+       printf("Taille  : ___\n", taille);   /* compléter ___ */
+       printf("Initiale: ___\n", initiale); /* compléter ___ */
+       return 0;
+   }
+   ```
+
+5. Qu'affiche le code suivant ? Justifier.
+
+   ```c
+   int x = 10;
+   int y = 3;
+   printf("%d\n",   x / y);
+   printf("%f\n",   x / y);
+   printf("%f\n",   (double)x / y);
+   ```
+
+## Partie C — Comparaison avec Haskell
+
+6. Compléter le tableau comparatif :
+
+   | Concept | Haskell | C |
+   |---|---|---|
+   | Afficher à l'écran | `putStrLn "Bonjour"` | ? |
+   | Lier un entier à un nom | `let x = 10` (immuable) | ? |
+   | Point d'entrée | `main :: IO ()` | ? |
+   | Commentaire sur une ligne | `-- commentaire` | ? |
+   | Commentaire sur plusieurs lignes | `{- ... -}` | ? |
+
+7. En Haskell, `x = 10` et ensuite `x = 20` dans le même contexte est une
+   **erreur de compilation**. Que se passe-t-il en C ? Pourquoi ?

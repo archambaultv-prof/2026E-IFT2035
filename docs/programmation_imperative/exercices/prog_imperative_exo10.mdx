@@ -1,0 +1,111 @@
+---
+sidebar_position: 10
+sidebar_label: "Ex. 10 — Modes de passage de paramètres"
+description: Simuler en C les quatre modes de passage de paramètres d'un langage imaginaire.
+---
+
+# Exercice 10 — Modes de passage de paramètres
+
+## Le code source Zlika
+
+Considérons le code suivant écrit dans le langage imaginaire **Zlika** (syntaxe
+proche de Pascal) :
+
+```pascal
+VAR a : INTEGER;
+VAR b, c : ARRAY OF INTEGER;
+
+PROCEDURE move(x, y : INTEGER; n : INTEGER)
+  LOCAL VAR a
+BEGIN
+  a := y;
+  x := a + n;
+  y := y - n;
+END
+
+...
+move(a, b[a], c[a])
+```
+
+La variable locale `a` dans `move` **masque** la variable globale `a`.
+L'appel `move(a, b[a], c[a])` passe les trois expressions comme arguments à
+`x`, `y` et `n` respectivement.
+
+## Questions
+
+Pour chacun des quatre modes de passage de paramètres ci-dessous, réécrire
+l'**appel** `move(a, b[a], c[a])` et éventuellement la **procédure** `move`
+en C idiomatique simulant ce mode.
+
+Utiliser les valeurs initiales concrètes `a = 1`, `b = {10, 20, 30}`,
+`c = {5, 15, 25}` pour tracer l'exécution et vérifier que la simulation est
+correcte.
+
+### 1. Passage par valeur
+
+Les arguments sont **copiés** à l'appel ; les modifications de `x`, `y`, `n`
+dans `move` n'affectent pas les variables de l'appelant.
+
+```c
+/* À compléter */
+void move_valeur(int x, int y, int n) {
+    /* ... */
+}
+```
+
+### 2. Passage par référence
+
+Les paramètres sont des **alias** des arguments originaux : toute modification
+de `x` ou `y` dans `move` se répercute directement sur la variable ou la case
+du tableau correspondante chez l'appelant.
+
+```c
+/* À compléter */
+void move_reference(/* ... */) {
+    /* ... */
+}
+```
+
+### 3. Passage par valeur-résultat
+
+Les valeurs sont **copiées à l'entrée** (comme par valeur), puis les valeurs
+finales des paramètres sont **recopiées dans les arguments originaux à la
+sortie** (comme par référence, mais sans aliasing pendant l'exécution).
+
+```c
+/* À compléter */
+void move_valeur_resultat(/* ... */) {
+    /* ... */
+}
+```
+
+### 4. Passage par nom
+
+Chaque **utilisation** d'un paramètre réévalue l'expression d'argument dans le
+contexte de l'appelant. Par exemple, `y` dans `move` correspond à `b[a]` où
+`a` est la variable globale — donc si `a` change, les utilisations ultérieures
+de `y` peuvent retourner une valeur différente.
+
+En C, on peut simuler ce comportement avec des **macros** ou des
+**pointeurs de fonction sans argument** retournant la valeur courante.
+
+```c
+/* À compléter */
+```
+
+:::caution[Piège classique]
+L'ordre d'évaluation des arguments lors de l'appel `move(a, b[a], c[a])` est
+important : si `a` est modifié pendant l'évaluation des arguments, les
+expressions `b[a]` et `c[a]` peuvent être évaluées avec une valeur différente
+de `a`. Décrire précisément ce qui se passe dans chaque mode.
+:::
+
+## Questions complémentaires
+
+5. Combien de modes de passage de paramètres le langage C offre-t-il
+   *nativement* ? Justifier en vous appuyant sur les cas ci-dessus.
+
+6. Pour les modes que C ne supporte pas nativement, quelles sont les
+   limitations des simulations que vous avez écrites ? Existe-t-il des cas
+   où la simulation ne peut pas reproduire fidèlement le comportement du
+   mode original ?

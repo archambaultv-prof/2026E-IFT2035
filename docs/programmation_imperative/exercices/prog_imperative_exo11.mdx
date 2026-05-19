@@ -1,0 +1,79 @@
+---
+sidebar_position: 11
+sidebar_label: "Ex. 11 — Alignement et usage mémoire"
+description: Calculer le padding, sizeof et l'usage mémoire d'une structure C sur un système 32 bits.
+---
+
+# Exercice 11 — Alignement et usage mémoire
+
+## La bibliothèque
+
+Considérons la bibliothèque C suivante pour un arbre binaire qui associe des
+entiers de 16 bits à des valeurs en virgule flottante double précision :
+
+```c
+typedef struct bt_node bt_node;
+struct bt_node {
+    short    key;
+    double   value;
+    char     kind;
+    bt_node *left;
+    bt_node *right;
+};
+
+typedef struct bt bt;
+struct bt {
+    bt_node *root;
+};
+
+bt   *bt_alloc(void);
+void  bt_insert(bt *t, short k, double v);
+char  bt_remove(bt *t, short k);
+bt   *bt_below(bt *t, short k);
+```
+
+## Caractéristiques du système
+
+Sur le système considéré, chaque type obéit à son **alignement naturel**
+(l'adresse d'un objet de type `T` doit être un multiple de `sizeof(T)`) :
+
+| Type       | Taille | Alignement |
+|------------|--------|------------|
+| `char`     | 1 o    | 1          |
+| `short`    | 2 o    | 2          |
+| pointeur   | 4 o    | 4          |
+| `double`   | 8 o    | 8          |
+
+## Questions
+
+1. Quelle quantité de mémoire (en octets) est allouée par un appel à
+   `bt_alloc` ?
+
+2. Indiquer **tous les endroits** dans `struct bt_node` où le compilateur C
+   va insérer du **padding**. Pour chaque padding, préciser le nombre
+   d'octets insérés et expliquer pourquoi il est nécessaire.
+
+   :::tip[Méthode]
+   Parcourir les champs dans l'ordre de déclaration. Après chaque champ,
+   calculer l'offset courant et déterminer combien d'octets doivent être
+   ajoutés pour que le champ suivant respecte son alignement.
+   :::
+
+3. Donner la valeur de `sizeof(bt_node)`.
+
+   :::note[Rappel]
+   La taille d'une structure doit être un multiple de l'alignement de son
+   champ le plus contraignant, afin qu'un tableau de structures soit
+   correctement aligné.
+   :::
+
+4. La fonction `bt_below` ne modifie aucune partie de ses arguments : elle
+   retourne un tout nouvel arbre contenant tous les nœuds dont la clé est
+   strictement inférieure à `k`. Sachant que `t` contient **10 nœuds**,
+   combien d'octets de mémoire doit-elle allouer dans le **pire des cas** ?
+
+## Question bonus
+
+5. Proposer un réordonnancement des champs de `struct bt_node` qui minimise
+   la taille totale de la structure. Calculer la nouvelle valeur de
+   `sizeof(bt_node)` avec cet ordre.

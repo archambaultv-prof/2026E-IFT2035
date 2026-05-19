@@ -1,0 +1,96 @@
+---
+sidebar_position: 4
+sidebar_label: "Ex. 4 — Fonctions et passage par valeur"
+description: Définir des fonctions C, comprendre le passage par valeur, la pile d'appels et les prototypes.
+---
+
+# Exercice 4 — Fonctions et passage par valeur
+
+## Partie A — Définir et appeler des fonctions
+
+1. Écrire les fonctions C suivantes. Ajouter un prototype (déclaration avant
+   `main`) pour chacune.
+
+   a. `int min(int a, int b)` — retourne le minimum de deux entiers.
+
+   b. `int min3(int a, int b, int c)` — retourne le minimum de trois entiers,
+      **en appelant `min`**.
+
+   c. `double moyenne(int a, int b, int c)` — retourne la moyenne des trois
+      entiers en virgule flottante (attention à la division entière).
+
+   d. `void afficher_etoiles(int n)` — affiche `n` étoiles sur une ligne,
+      sans retourner de valeur.
+
+2. Écrire un `main` qui teste chacune de ces fonctions et affiche les résultats
+   sur la sortie standard.
+
+## Partie B — Passage par valeur
+
+3. Prédire ce qu'affiche le programme suivant, **sans compiler**.
+   Expliquer pourquoi.
+
+   ```c
+   #include <stdio.h>
+
+   void doubler(int x) {
+       x = x * 2;
+       printf("dans doubler : x = %d\n", x);
+   }
+
+   int main(void) {
+       int n = 5;
+       doubler(n);
+       printf("après l'appel : n = %d\n", n);
+       return 0;
+   }
+   ```
+
+4. Un étudiant écrit cette fonction pour échanger deux entiers :
+
+   ```c
+   void echanger(int a, int b) {
+       int tmp = a;
+       a = b;
+       b = tmp;
+   }
+
+   int main(void) {
+       int x = 10, y = 20;
+       echanger(x, y);
+       printf("x = %d, y = %d\n", x, y);  /* espère : x = 20, y = 10 */
+       return 0;
+   }
+   ```
+
+   a. Que s'affiche-t-il réellement ?
+
+   b. Expliquer précisément pourquoi la fonction ne fait pas ce que l'étudiant
+      espère.
+
+## Partie C — Récursion et pile en C
+
+5. Écrire la fonction suivante et l'appeler depuis `main` :
+
+   ```c
+   void compter(int n) {
+       printf("n = %d\n", n);
+       compter(n + 1);
+   }
+   ```
+
+   a. Compiler et exécuter. Que se passe-t-il ? Quel message d'erreur
+      (ou quel comportement) obtient-on ?
+
+   b. En Java, une récursion infinie lève une `StackOverflowError` — une
+      exception récupérable avec `catch`. Pourquoi C se comporte-t-il
+      différemment ? Qu'arrive-t-il à la mémoire ?
+
+   c. La taille de la pile est typiquement limitée à **8 Mo** sous Linux.
+      Modifier `compter` pour qu'elle déclare un tableau local
+      `char tampon[4096]` à chaque appel. Comment cela change-t-il le
+      nombre d'appels avant le crash ? Calculer le nombre attendu et vérifier.
+
+   d. Le compilateur peut transformer une **récursion terminale** en boucle
+      (optimisation *tail call*). Est-ce le cas ici ? Compiler avec `-O2`
+      et observer si le comportement change.

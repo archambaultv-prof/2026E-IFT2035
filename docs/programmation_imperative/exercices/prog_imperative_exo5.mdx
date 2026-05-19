@@ -1,0 +1,122 @@
+---
+sidebar_position: 5
+sidebar_label: "Ex. 5 — Pointeurs"
+description: Opérateurs & et *, passage par pointeur, pointeur NULL et arithmétique de pointeurs.
+---
+
+# Exercice 5 — Pointeurs
+
+## Partie A — Lire du code avec pointeurs
+
+1. Prédire ce qu'affiche le programme suivant, puis vérifier.
+
+   ```c
+   int a = 10;
+   int b = 20;
+   int *p = &a;
+
+   printf("%d\n", a);    /* a) */
+   printf("%d\n", *p);   /* b) */
+   printf("%d\n", *p + b); /* c) */
+
+   *p = 99;
+   printf("%d\n", a);    /* d) */
+
+   p = &b;
+   *p = *p * 2;
+   printf("%d\n", b);    /* e) */
+   printf("%d\n", a);    /* f) */
+   ```
+
+2. Qu'est-ce qu'un **pointeur NULL** ? Que se passe-t-il si on déréférence `NULL` ?
+   Dans quel cas est-il utile d'initialiser un pointeur à `NULL` ?
+
+## Partie B — Passage par pointeur
+
+3. Réécrire la fonction `echanger` de l'exercice 4, cette fois correctement,
+   en utilisant des pointeurs :
+
+   ```c
+   void echanger(int *a, int *b) {
+       /* à compléter */
+   }
+   ```
+
+   Modifier `main` pour l'appeler correctement :
+
+   ```c
+   int x = 10, y = 20;
+   echanger(/* ? */, /* ? */);
+   printf("x = %d, y = %d\n", x, y);  /* doit afficher : x = 20, y = 10 */
+   ```
+
+4. Écrire une fonction `min_max(int a, int b, int *min, int *max)` qui
+   calcule simultanément le minimum et le maximum de `a` et `b`, en stockant
+   les résultats aux adresses fournies.
+
+   ```c
+   int petit, grand;
+   min_max(7, 3, &petit, &grand);
+   printf("min = %d, max = %d\n", petit, grand);  /* min = 3, max = 7 */
+   ```
+
+## Partie C — Pointeurs et struct
+
+5. Prédire ce qu'affiche le programme suivant, puis vérifier.
+
+   ```c
+   int tab[4] = {10, 20, 30, 40};
+   int *p = tab;         /* p pointe sur tab[0] */
+
+   printf("%d\n", *p);       /* a) */
+   printf("%d\n", *(p + 1)); /* b) */
+   printf("%d\n", p[2]);     /* c) */
+
+   p++;
+   printf("%d\n", *p);       /* d) */
+   printf("%d\n", p[1]);     /* e) */
+   ```
+
+   :::note[`tab[i]` et `*(tab + i)` sont équivalents]
+   En C, l'accès par indice `tab[i]` est un raccourci pour `*(tab + i)`.
+   Un tableau est essentiellement un pointeur vers son premier élément.
+   :::
+
+## Partie D — Erreurs classiques
+
+6. Identifier et corriger le bug dans chacun des fragments suivants :
+
+   a. 
+
+      ```c
+      int *p;
+      *p = 42;
+      ```
+
+   b.
+
+      ```c
+      int *creer_entier(void) {
+          int x = 5;
+          return &x;
+      }
+      ```
+
+   c.
+
+      ```c
+      int x = 10;
+      int *p = &x;
+      int *q = &x;
+
+      int *r = p + q;
+      ```
+
+7. Que vaut `p` après le code suivant ? Comparer `p == q` et `*p == *q` :
+
+   ```c
+   int a = 5;
+   int b = 5;
+   int *p = &a;
+   int *q = &b;
+   ```

@@ -1,0 +1,102 @@
+---
+sidebar_position: 6
+sidebar_label: "Ex. 6 — Tableaux et chaînes"
+description: Tableaux en C, chaînes de caractères, passage à une fonction et opérations courantes.
+---
+
+# Exercice 6 — Tableaux et chaînes de caractères
+
+## Partie A — Tableaux d'entiers
+
+1. Qu'affiche le programme suivant ? Expliquer.
+
+   ```c
+   int tab[5] = {3, 1, 4, 1, 5};
+   int i;
+   for (i = 0; i < 5; i++) {
+       printf("%d ", tab[i]);
+   }
+   printf("\n");
+   printf("taille : %zu\n", sizeof(tab) / sizeof(tab[0]));
+   ```
+
+2. Écrire une fonction `somme_tableau(int *tab, int n)` qui retourne la somme
+   des `n` premiers éléments du tableau.
+
+   ```c
+   int t[] = {1, 2, 3, 4, 5};
+   printf("%d\n", somme_tableau(t, 5));  /* 15 */
+   ```
+
+3. Écrire une fonction `inverser_tableau(int *tab, int n)` qui inverse le
+   tableau **en place** (sans créer de nouveau tableau).
+
+   :::tip
+   Utiliser deux indices `gauche` et `droit` qui se rapprochent du centre,
+   en échangeant `tab[gauche]` et `tab[droit]` à chaque étape.
+   :::
+
+4. Expliquer pourquoi la fonction suivante **ne fonctionne pas** comme prévu :
+
+   ```c
+   void remplir(int tab[5]) {
+       int i;
+       for (i = 0; i < 5; i++) tab[i] = i;
+   }
+   ```
+
+   Que se passe-t-il à l'intérieur de `remplir` si on écrit
+   `sizeof(tab) / sizeof(tab[0])` ? Pourquoi est-ce surprenant ?
+
+## Partie B — Chaînes de caractères
+
+En C, une chaîne de caractères est un tableau de `char` terminé par le
+caractère nul `'\0'` (code ASCII 0).
+
+```c
+char s[] = "Bonjour";
+/*  s[0]='B', s[1]='o', ..., s[6]='r', s[7]='\0' */
+```
+
+5. Écrire la fonction `ma_strlen(const char *s)` qui retourne la longueur
+   d'une chaîne (nombre de caractères **avant** le `'\0'`) **sans utiliser**
+   `<string.h>`.
+
+   ```c
+   printf("%d\n", ma_strlen("Bonjour"));  /* 7 */
+   printf("%d\n", ma_strlen(""));         /* 0 */
+   ```
+
+6. Écrire la fonction `ma_strcpy(char *dest, const char *src)` qui copie la
+   chaîne `src` (y compris le `'\0'` final) dans le tableau `dest`.
+
+   :::caution[Mémoire suffisante]
+   La fonction suppose que `dest` pointe vers un tableau assez grand pour
+   contenir `src`. Sinon, c'est un dépassement de tampon — l'un des bugs de
+   sécurité les plus classiques en C.
+   :::
+
+7. Écrire une fonction `compter_occurrences(const char *s, char c)` qui
+   retourne le nombre de fois que le caractère `c` apparaît dans la chaîne `s`.
+
+## Partie C — Passage de tableaux à des fonctions
+
+8. Voici deux signatures pour une fonction qui met à zéro tous les éléments
+   d'un tableau :
+
+   ```c
+   void mettre_a_zero_a(int tab[], int n);
+   void mettre_a_zero_b(int *tab, int n);
+   ```
+
+   Ces deux signatures sont-elles équivalentes ? Implémenter la fonction
+   (une seule implémentation suffit).
+
+9. Comparer le passage de tableaux en C avec les listes en Haskell :
+
+   | | Haskell | C |
+   |---|---|---|
+   | Passage à une fonction | Copie la référence (immuable) | ? |
+   | Modification en place | Impossible (immuable) | ? |
+   | Connaissance de la taille | `length xs` | ? |
+   | Élément hors bornes | Erreur à l'exécution (`!!`) | ? |

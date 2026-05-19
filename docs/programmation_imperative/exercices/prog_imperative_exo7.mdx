@@ -1,0 +1,92 @@
+---
+sidebar_position: 7
+sidebar_label: "Ex. 7 — Structures (struct)"
+description: Définir et utiliser des struct en C ; accès par . et -> ; comparaison avec les types algébriques Haskell.
+---
+
+# Exercice 7 — Structures (`struct`)
+
+## Partie A — Définir et utiliser une structure
+
+1. Définir un type `Point` représentant un point dans le plan avec des
+   coordonnées entières, puis écrire les fonctions demandées :
+
+   ```c
+   typedef struct {
+       int x;
+       int y;
+   } Point;
+   ```
+
+   a. `Point creer_point(int x, int y)` — retourne un nouveau `Point`.
+
+   b. `void afficher_point(Point p)` — affiche `(x, y)`.
+
+   c. `double distance(Point a, Point b)` — retourne la distance euclidienne
+      entre deux points. Utiliser `sqrt` de `<math.h>` (compiler avec `-lm`).
+
+   d. `Point milieu(Point a, Point b)` — retourne le point milieu. Que se
+      passe-t-il si les coordonnées sont impaires ? Proposer deux solutions.
+
+2. Écrire un `main` qui :
+   - Crée deux points `A = (0, 0)` et `B = (3, 4)`.
+   - Affiche les deux points.
+   - Affiche leur distance (doit valoir `5.000000`).
+   - Affiche leur milieu.
+
+## Partie B — Structures et pointeurs
+
+3. Lorsqu'on passe une structure à une fonction par valeur, toute la structure
+   est **copiée**. Réécrire `afficher_point` et `distance` pour qu'elles
+   prennent des **pointeurs** vers les structures :
+
+   ```c
+   void afficher_point_ptr(const Point *p);
+   double distance_ptr(const Point *a, const Point *b);
+   ```
+
+   L'opérateur `->` permet d'accéder aux champs via un pointeur :
+   `p->x` est équivalent à `(*p).x`.
+
+4. Comparer les deux versions de `distance` : par valeur et par pointeur.
+   - Laquelle copie plus de données lors de l'appel ?
+   - Pour une structure `Point` à deux `int`, la différence est-elle
+     significative ? Et pour une structure avec 100 champs ?
+
+## Partie C — Structure imbriquée : rectangle
+
+5. Définir un type `Rectangle` en réutilisant `Point` :
+
+   ```c
+   typedef struct {
+       Point coin_sup_gauche;
+       Point coin_inf_droit;
+   } Rectangle;
+   ```
+
+   Écrire les fonctions suivantes :
+
+   a. `int aire(Rectangle r)` — retourne l'aire du rectangle.
+
+   b. `int perimetre(Rectangle r)` — retourne le périmètre.
+
+   c. `int contient(Rectangle r, Point p)` — retourne `1` si le point `p`
+      est à l'intérieur (ou sur le bord) du rectangle, `0` sinon.
+
+## Partie D — Comparaison avec Haskell
+
+6. Compléter le tableau comparatif entre `struct` en C et les types de données
+   Haskell :
+
+   | | Haskell | C |
+   |---|---|---|
+   | Définir un type produit | `data Point = Point Int Int` | `typedef struct { int x; int y; } Point;` |
+   | Créer une valeur | `Point 3 4` | ? |
+   | Accéder à un champ | Filtrage par motif ou `x (Point x _)` | ? |
+   | Modifier un champ | `p { x = 5 }` (copie) | ? |
+   | Passer à une fonction | Toujours par valeur (immuable) | ? |
+   | Type somme | `data Shape = Circle Double \| Rect Double Double` | ? (`union` ou `enum` + `struct`) |
+
+7. En Haskell, les valeurs sont immuables : `p { x = 5 }` crée un *nouveau*
+   `Point`. En C, `p.x = 5` modifie `p` en place. Quelles sont les
+   conséquences de cette différence pour le raisonnement sur les programmes ?
