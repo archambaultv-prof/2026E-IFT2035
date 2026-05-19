@@ -1,111 +1,76 @@
 ---
 sidebar_position: 10
-sidebar_label: "Ex. 10 — Modes de passage de paramètres"
-description: Simuler en C les quatre modes de passage de paramètres d'un langage imaginaire.
+sidebar_label: "Ex. 10 — Alignement et usage mémoire"
+description: Calculer le padding, sizeof et l'usage mémoire d'une structure C sur un système 32 bits.
 ---
 
-# Exercice 10 — Modes de passage de paramètres
+# Exercice 10 — Alignement et usage mémoire
 
-## Le code source Zlika
+## La bibliothèque
 
-Considérons le code suivant écrit dans le langage imaginaire **Zlika** (syntaxe
-proche de Pascal) :
+Considérons la bibliothèque C suivante pour un arbre binaire qui associe des
+entiers de 16 bits à des valeurs en virgule flottante double précision :
 
-```pascal
-VAR a : INTEGER;
-VAR b, c : ARRAY OF INTEGER;
+```c
+typedef struct bt_node bt_node;
+struct bt_node {
+    short    key;
+    double   value;
+    char     kind;
+    bt_node *left;
+    bt_node *right;
+};
 
-PROCEDURE move(x, y : INTEGER; n : INTEGER)
-  LOCAL VAR a
-BEGIN
-  a := y;
-  x := a + n;
-  y := y - n;
-END
+typedef struct bt bt;
+struct bt {
+    bt_node *root;
+};
 
-...
-move(a, b[a], c[a])
+bt   *bt_alloc(void);
+void  bt_insert(bt *t, short k, double v);
+char  bt_remove(bt *t, short k);
+bt   *bt_below(bt *t, short k);
 ```
 
-La variable locale `a` dans `move` **masque** la variable globale `a`.
-L'appel `move(a, b[a], c[a])` passe les trois expressions comme arguments à
-`x`, `y` et `n` respectivement.
+## Caractéristiques du système
+
+Sur le système considéré, chaque type obéit à son **alignement naturel**
+(l'adresse d'un objet de type `T` doit être un multiple de `sizeof(T)`) :
+
+| Type       | Taille | Alignement |
+|------------|--------|------------|
+| `char`     | 1 o    | 1          |
+| `short`    | 2 o    | 2          |
+| pointeur   | 4 o    | 4          |
+| `double`   | 8 o    | 8          |
 
 ## Questions
 
-Pour chacun des quatre modes de passage de paramètres ci-dessous, réécrire
-l'**appel** `move(a, b[a], c[a])` et éventuellement la **procédure** `move`
-en C idiomatique simulant ce mode.
+1. Quelle quantité de mémoire (en octets) est allouée par un appel à
+   `bt_alloc` ?
 
-Utiliser les valeurs initiales concrètes `a = 1`, `b = {10, 20, 30}`,
-`c = {5, 15, 25}` pour tracer l'exécution et vérifier que la simulation est
-correcte.
+2. Indiquer **tous les endroits** dans `struct bt_node` où le compilateur C
+   va insérer du **padding**. Pour chaque padding, préciser le nombre
+   d'octets insérés et expliquer pourquoi il est nécessaire.
 
-### 1. Passage par valeur
+   :::tip[Méthode]
+   Parcourir les champs dans l'ordre de déclaration. Après chaque champ,
+   calculer l'offset courant et déterminer combien d'octets doivent être
+   ajoutés pour que le champ suivant respecte son alignement.
+   :::
 
-Les arguments sont **copiés** à l'appel ; les modifications de `x`, `y`, `n`
-dans `move` n'affectent pas les variables de l'appelant.
+3. Donner la valeur de `sizeof(bt_node)`.
 
-```c
-/* À compléter */
-void move_valeur(int x, int y, int n) {
-    /* ... */
-}
-```
+   :::note[Rappel]
+   La taille d'une structure doit être un multiple de l'alignement de son
+   champ le plus contraignant, afin qu'un tableau de structures soit
+   correctement aligné.
+   :::
 
-### 2. Passage par référence
+4. La fonction `bt_below` ne modifie aucune partie de ses arguments : elle
+   retourne un tout nouvel arbre contenant tous les nœuds dont la clé est
+   strictement inférieure à `k`.
 
-Les paramètres sont des **alias** des arguments originaux : toute modification
-de `x` ou `y` dans `move` se répercute directement sur la variable ou la case
-du tableau correspondante chez l'appelant.
-
-```c
-/* À compléter */
-void move_reference(/* ... */) {
-    /* ... */
-}
-```
-
-### 3. Passage par valeur-résultat
-
-Les valeurs sont **copiées à l'entrée** (comme par valeur), puis les valeurs
-finales des paramètres sont **recopiées dans les arguments originaux à la
-sortie** (comme par référence, mais sans aliasing pendant l'exécution).
-
-```c
-/* À compléter */
-void move_valeur_resultat(/* ... */) {
-    /* ... */
-}
-```
-
-### 4. Passage par nom
-
-Chaque **utilisation** d'un paramètre réévalue l'expression d'argument dans le
-contexte de l'appelant. Par exemple, `y` dans `move` correspond à `b[a]` où
-`a` est la variable globale — donc si `a` change, les utilisations ultérieures
-de `y` peuvent retourner une valeur différente.
-
-En C, on peut simuler ce comportement avec des **macros** ou des
-**pointeurs de fonction sans argument** retournant la valeur courante.
-
-```c
-/* À compléter */
-```
-
-:::caution[Piège classique]
-L'ordre d'évaluation des arguments lors de l'appel `move(a, b[a], c[a])` est
-important : si `a` est modifié pendant l'évaluation des arguments, les
-expressions `b[a]` et `c[a]` peuvent être évaluées avec une valeur différente
-de `a`. Décrire précisément ce qui se passe dans chaque mode.
-:::
-
-## Questions complémentaires
-
-5. Combien de modes de passage de paramètres le langage C offre-t-il
-   *nativement* ? Justifier en vous appuyant sur les cas ci-dessus.
-
-6. Pour les modes que C ne supporte pas nativement, quelles sont les
-   limitations des simulations que vous avez écrites ? Existe-t-il des cas
-   où la simulation ne peut pas reproduire fidèlement le comportement du
-   mode original ?
+5. Proposer un réordonnancement des champs de `struct bt_node` qui minimise
+   la taille totale de la structure. Calculer la nouvelle valeur de
+   `sizeof(bt_node)` avec cet ordre.
