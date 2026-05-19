@@ -104,20 +104,6 @@ Le compilateur accepte l'ombrage, mais il peut mener à des confusions. Avec
 `-Wshadow` (GCC/Clang), le compilateur avertit des ombrages.
 :::
 
-### Portée lexicale en Haskell
-
-Haskell utilise également la portée lexicale :
-
-```haskell
-x = 10
-
-foo = let x = 5  -- masque le x global
-      in x + 1   -- utilise le x local (5), résultat : 6
-```
-
-La portée lexicale rend l'analyse statique possible : on peut déterminer à la
-lecture du code quelle déclaration est utilisée, sans exécuter le programme.
-
 ## Les quatre niveaux de portée en C
 
 En C, une variable peut avoir l'une de ces quatre portées :
@@ -212,7 +198,7 @@ pendant).
 int* dangeureux(void) {
     int x = 42;
     return &x;  /* INTERDIT : x sera détruite dès le retour */
-    /* le pointeur retournedésigne de la mémoire invalide */
+    /* le pointeur retourne désigne de la mémoire invalide */
 }
 ```
 
@@ -235,6 +221,41 @@ void compter(void) {
 /* compter(); → "Appel n° 3" */
 ```
 
+:::note[Durée de vie statique ≠ portée]
+La durée de vie statique et la portée sont deux choses distinctes. Une variable
+`static` locale a une durée de vie statique (elle survit entre les appels), mais
+sa **portée reste limitée au bloc** où elle est déclarée. En dehors de ce bloc,
+l'identifiant fait référence à une autre variable — par exemple, une globale du
+même nom.
+
+```c
+int n = 100;  /* n globale : portée de fichier, durée de vie statique */
+
+void incrementer(void) {
+    static int n = 0;  /* n locale : portée de bloc seulement, durée de vie statique */
+    n++;               /* ici, n désigne la variable locale statique */
+    printf("n local  = %d\n", n);
+}
+
+int main(void) {
+    printf("n global = %d\n", n);  /* 100  — n globale */
+    incrementer();                  /* n local  = 1 */
+    printf("n global = %d\n", n);  /* 100  — n globale inchangée */
+    incrementer();                  /* n local  = 2 */
+    printf("n global = %d\n", n);  /* 100  — n globale inchangée */
+    incrementer();                  /* n local  = 3 */
+    printf("n global = %d\n", n);  /* 100  — n globale inchangée */
+    return 0;
+}
+```
+
+Entre les appels à `incrementer`, on « revient » au `n` global : c'est la
+portée lexicale qui détermine lequel des deux `n` est visible à chaque point
+du code. Les deux variables `n` ont une durée de vie statique (elles existent
+toutes les deux pendant toute l'exécution du programme), mais elles occupent
+des espaces mémoire distincts et ne sont pas accessibles aux mêmes endroits.
+:::
+
 ### Variables globales
 
 Variables déclarées à l'extérieur de toute fonction : durée de vie = durée du
@@ -245,36 +266,3 @@ Les variables globales mutables sont une source de bugs difficiles car n'importe
 quelle fonction peut les modifier. En programmation fonctionnelle, l'état global
 mutable est inexistant. En C, leur usage doit être limité et justifié.
 :::
-
-## Portée dynamique
-
-La **portée dynamique** est l'alternative à la portée lexicale : l'identifiant
-fait référence à la déclaration **la plus récemment activée à l'exécution**.
-
-```
-/* Imaginons un langage à portée dynamique */
-x = 1
-foo() = print x     /* x non défini localement */
-
-bar() = { x = 2; foo(); }   /* affiche 2 (x de bar) */
-baz() = { x = 3; foo(); }   /* affiche 3 (x de baz) */
-```
-
-Avec la portée dynamique, une fonction a accès aux variables de son
-**environnement d'appel** (la fonction qui l'a appelée), pas de son
-environnement de définition.
-
-| Aspect | Portée lexicale | Portée dynamique |
-|---|---|---|
-| Résolution | À la compilation | À l'exécution |
-| Lisibilité | Plus facile à raisonner | Surprenant |
-| Utilisé par | C, Haskell, Python, Java | Emacs Lisp (ancien), TeX |
-| Avantage | Analyse statique possible | Passage d'arguments implicite |
-
-:::info[La portée dynamique en Haskell]
-Haskell a une façon contrôlée de simuler la portée dynamique via la typeclass
-`Reader` ou les variables `IORef`. C'est explicite et géré par le système de types,
-contrairement à la portée dynamique des vieux langages comme Emacs Lisp.
-:::
-
-**C utilise uniquement la portée lexicale.** C'est la norme des langages modernes.
