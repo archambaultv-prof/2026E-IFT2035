@@ -1,12 +1,120 @@
 ---
 sidebar_position: 2
+sidebar_label: Introduction
+description: Du modèle machine à la programmation impérative. Comparaison avec la programmation fonctionnelle.
 ---
 
 # Programmation impérative
 
-:::warning
+## Une autre façon de penser les programmes
 
-Section en construction. Les contenus seront ajoutés au fur et à mesure de l'avancement du cours.
+Dans le chapitre sur la programmation fonctionnelle, les programmes étaient des
+**expressions à évaluer** : chaque définition était immuable, il n'y avait pas
+d'état, et l'ordre d'évaluation était largement sans importance. Un programme
+Haskell ressemble à un système d'équations mathématiques : on décrit *ce que*
+est quelque chose, pas *comment* l'obtenir.
 
+La **programmation impérative** repose sur un modèle radicalement différent :
+un programme est une **séquence d'opérations qui modifient l'état d'une
+machine**. On décrit *comment* résoudre un problème, étape par étape. C'est
+le style de programmation qui correspond le plus directement au fonctionnement
+réel d'un ordinateur : un processeur exécute des instructions une à une, dans
+l'ordre, en modifiant des registres et de la mémoire.
+
+Cette différence n'est pas superficielle. Elle change la façon de raisonner
+sur les programmes, de les tester, de les déboguer, et de penser aux erreurs.
+Comprendre les deux paradigmes permet d'écrire de meilleur code dans l'un ou
+l'autre, et d'apprécier pourquoi les langages modernes comme Rust ou Scala
+cherchent à marier les deux.
+
+:::info[Paradigmes comparés]
+| Aspect | Fonctionnel (Haskell) | Impératif (C) |
+|---|---|---|
+| Programme | Expression à évaluer | Séquence d'instructions |
+| Variables | Noms liés à des valeurs immuables | Emplacements mémoire modifiables |
+| Répétition | Récursion | Boucles (`while`, `for`) |
+| Résultat | Valeur de retour | Modification de l'état de la machine |
+| Ordre | Largement sans importance | Critique |
 :::
+
+## Les concepts fondamentaux
+
+La programmation impérative s'articule autour de quelques concepts essentiels.
+Chacun a son pendant (ou son absence) en programmation fonctionnelle, ce qui
+rend la comparaison instructive.
+
+### Séquence
+
+Les opérations s'exécutent dans un **ordre précis et explicite**. L'ordre
+importe : échanger deux instructions peut changer le résultat. C'est une
+préoccupation inexistante en Haskell pur, où les expressions n'ont pas d'effets
+et peuvent être évaluées dans n'importe quel ordre.
+
+```c
+c = getchar();    /* lit un caractère */
+c = toupper(c);   /* le convertit en majuscule */
+putchar(c);       /* l'affiche */
+```
+
+Ces trois lignes ne peuvent pas être réordonnées sans changer le comportement
+du programme. En particulier, si on lit avant de convertir, ou si on affiche
+avant de lire, le résultat est différent. L'ordre est une information
+sémantique à part entière.
+
+### État
+
+L'**état** d'un programme à un instant donné est l'ensemble de toutes les
+valeurs en mémoire à ce moment. L'exécution d'une opération fait passer le
+programme d'un état à un autre. Un programme impératif peut donc être vu comme
+une machine à états : chaque instruction est une transition.
+
+```c
+int x = 0;   /* état : x = 0 */
+x = x + 1;   /* état : x = 1 */
+x = x * 2;   /* état : x = 2 */
+```
+
+En Haskell, cette séquence n'aurait aucun sens — `x = x + 1` est une
+contradiction logique, équivalente à écrire $x = x + 1$ en mathématiques.
+En C, c'est l'opération la plus naturelle qui soit : on lit le contenu de
+la case mémoire de `x`, on y ajoute 1, et on écrit le résultat dans cette
+même case.
+
+### Effet de bord
+
+Un **effet de bord** est toute modification que produit une opération en dehors
+de sa valeur de retour : écrire dans une variable, afficher à l'écran, lire un
+fichier, envoyer des données sur le réseau, modifier une structure de données
+globale.
+
+En Haskell, les effets de bord sont contrôlés *explicitement* via le type `IO`
+et les monades : toute fonction qui produit un effet doit l'annoncer dans sa
+signature. Une fonction de type `Int -> Int` en Haskell ne peut *pas* avoir
+d'effet de bord — le compilateur le garantit.
+
+En C, cette séparation n'existe pas. N'importe quelle fonction peut modifier
+n'importe quelle variable globale, écrire dans la mémoire via un pointeur, ou
+interagir avec le système. C'est à la fois très puissant et une source de bugs
+difficiles : il est impossible de savoir, juste en lisant la signature d'une
+fonction C, si elle modifie l'état du programme.
+
+### Identité
+
+Deux objets peuvent avoir la **même valeur** mais être deux objets **distincts**
+en mémoire. Cette distinction — entre égalité de valeur et identité d'emplacement
+— n'existe pas en programmation fonctionnelle pure, où seule la valeur compte.
+
+```c
+int a = 5;
+int b = 5;
+/* a et b ont la même valeur, mais sont deux cases mémoire différentes */
+/* modifier a ne modifie pas b */
+```
+
+Cette distinction devient critique avec les pointeurs : deux pointeurs peuvent
+être égaux en valeur (pointer vers la même adresse) ou pointer vers des
+endroits différents qui contiennent la même valeur. Dans le premier cas, écrire
+via l'un affecte ce que l'autre lit — c'est ce qu'on appelle un *alias*.
+
+La prochaine page présente le langage C en détail.
 

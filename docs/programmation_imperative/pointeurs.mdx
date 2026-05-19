@@ -1,0 +1,487 @@
+---
+sidebar_position: 8
+sidebar_label: Pointeurs
+description: Pointeurs en C — opérations fondamentales, arithmétique, tableaux, NULL et allocation dynamique.
+---
+
+# Pointeurs
+
+## Qu'est-ce qu'un pointeur ?
+
+Un **pointeur** est une variable dont la valeur est une **adresse mémoire**. Là
+où une variable ordinaire contient une valeur (un entier, un flottant, un
+caractère), un pointeur contient l'adresse d'une autre case mémoire — il
+« pointe » vers elle.
+
+Cette distinction peut sembler subtile, mais elle est fondamentale. En C, la
+mémoire est un grand tableau d'octets numérotés. Un pointeur est simplement un
+entier qui désigne l'une de ces cases. La magie vient des opérateurs qui
+permettent de passer de l'adresse à la valeur qui s'y trouve, et inversement.
+
+```
+Variables :
+
+  x : [ 42 ]  ←── adresse 1000
+  p : [1000]  ←── adresse 2000  (p contient l'adresse de x)
+```
+
+```c
+int  x = 42;   /* variable entière */
+int* p = &x;   /* p est un pointeur vers int, initialisé avec l'adresse de x */
+```
+
+Trois éléments de syntaxe à maîtriser :
+
+| Opérateur | Nom | Signification |
+|---|---|---|
+| `&x` | Adresse-de | Retourne l'adresse de la variable `x` |
+| `*p` | Déréférencement | Accède à la valeur pointée par `p` |
+| `int*` | Type pointeur | Type « pointeur vers `int` » |
+
+L'opérateur `&` est le miroir de `*` : `&` va de la variable vers son adresse,
+`*` va de l'adresse vers la valeur. Ces deux opérateurs se compensent :
+`*(&x)` est identique à `x`, et `&(*p)` est identique à `p`.
+
+```c
+int  x = 42;
+int* p = &x;
+
+printf("%d\n",  x);          /* 42    — valeur de x */
+printf("%p\n", (void*)p);    /* adresse de x (ex: 0x7fff5abc) */
+printf("%d\n", *p);          /* 42    — valeur pointée par p */
+
+*p = 100;                    /* modifie x via p */
+printf("%d\n",  x);          /* 100 */
+```
+
+Après `*p = 100`, la variable `x` vaut 100 alors qu'on n'a jamais écrit `x`
+explicitement. C'est le pouvoir — et le danger — de l'indirection : on peut
+modifier n'importe quelle variable pour peu qu'on dispose de son adresse.
+
+:::info[Pourquoi les pointeurs ?]
+Les pointeurs servent à quatre choses fondamentales en C :
+
+- **Modifier une variable depuis une autre fonction** — le passage par valeur
+  copie les arguments ; passer un pointeur permet à la fonction appelée d'écrire
+  directement dans la mémoire de l'appelant.
+- **Partager de grandes structures sans les copier** — passer un `struct` de
+  100 champs par valeur copierait des centaines d'octets ; passer un pointeur
+  ne copie que 8 octets (la taille d'une adresse sur une machine 64 bits).
+- **Construire des structures de données dynamiques** — les listes chaînées,
+  arbres, graphes, etc. ne peuvent pas avoir une taille fixe connue à la
+  compilation ; les pointeurs permettent de les faire croître à l'exécution.
+- **Allouer de la mémoire au moment de l'exécution** — quand la taille d'un
+  tableau dépend d'une entrée utilisateur, `malloc` alloue exactement ce qu'il
+  faut, et un pointeur désigne le bloc résultant.
+:::
+
+## Déclarer des pointeurs
+
+```c
+int*    p;    /* pointeur vers int */
+double* q;    /* pointeur vers double */
+char*   s;    /* pointeur vers char (souvent utilisé pour les chaînes) */
+int**   pp;   /* pointeur vers un pointeur vers int */
+```
+
+:::caution[Syntaxe trompeuse]
+```c
+int* a, b;   /* a est int*, mais b est int — pas int* ! */
+int *a, *b;  /* a et b sont tous les deux int* */
+```
+Pour déclarer plusieurs pointeurs du même type, placez `*` près du nom, pas
+du type.
+:::
+
+## Pointeur NULL
+
+Un pointeur qui ne pointe sur rien est initialisé à `NULL` :
+
+```c
+int* p = NULL;  /* p ne pointe sur rien */
+
+if (p != NULL) {
+    printf("%d\n", *p);  /* déréférencer NULL est un crash (segfault) */
+}
+```
+
+`NULL` est défini comme `0` (ou `(void*)0`). Déréférencer un pointeur NULL
+provoque une **segmentation fault** — le programme se termine immédiatement.
+
+:::caution[Ne jamais déréférencer un pointeur non initialisé]
+```c
+int* p;      /* valeur indéfinie — pointe quelque part au hasard */
+*p = 42;     /* comportement indéfini : crash ou corruption silencieuse */
+
+int* q = NULL;
+*q = 42;     /* segfault garanti — au moins l'erreur est détectée */
+```
+Initialisez toujours vos pointeurs, soit à une adresse valide, soit à `NULL`.
+:::
+
+## Allocation dynamique
+
+Jusqu'ici, toutes les variables que nous avons déclarées étaient allouées sur la
+**pile** (*stack*) : leur espace est réservé à l'entrée de la fonction et libéré
+automatiquement à sa sortie. C'est pratique, mais limité : la taille du tableau
+doit être connue à la compilation, et la pile a une capacité réduite (quelques
+mégaoctets typiquement).
+
+Le **tas** (*heap*) est une zone mémoire bien plus grande, gérée manuellement.
+On peut y allouer des blocs de taille quelconque, déterminée au moment de
+l'exécution, et leur durée de vie n'est pas liée à un appel de fonction — ils
+surviven tant que le programmeur ne les libère pas explicitement.
+
+```
+┌─────────────────────────────┐  adresses hautes
+│  Pile (stack)               │  variables locales, cadres d'appel
+│  ↓ croît vers le bas        │  libérée automatiquement
+├─────────────────────────────┤
+│             …               │
+├─────────────────────────────┤
+│  Tas (heap)                 │  malloc / free
+│  ↑ croît vers le haut       │  libérée manuellement
+├─────────────────────────────┤
+│  Données statiques          │  variables globales, static
+├─────────────────────────────┤
+│  Code (text)                │  instructions compilées
+└─────────────────────────────┘  adresses basses
+```
+
+### `malloc` — allouer
+
+`malloc` (*memory allocate*), déclaré dans `<stdlib.h>`, prend en argument le
+nombre d'octets à allouer et retourne un pointeur vers le premier octet du bloc
+alloué, ou `NULL` si l'allocation échoue (mémoire insuffisante).
+
+```c
+#include <stdlib.h>
+
+int* tableau = malloc(n * sizeof(int));
+```
+
+La convention `n * sizeof(T)` garantit que le calcul de taille est correct
+quel que soit le type : si `int` occupe 4 octets sur votre machine et 8 sur
+une autre, `sizeof(int)` s'adapte automatiquement. Ne codez jamais la taille
+en dur (`malloc(n * 4)` est fragile).
+
+`malloc` retourne un `void*` — un pointeur générique — que C convertit
+implicitement vers le type attendu. Le bloc alloué n'est **pas initialisé** :
+son contenu est indéfini. Si vous avez besoin d'un bloc mis à zéro, utilisez
+`calloc(n, sizeof(T))` à la place.
+
+```c
+int n = 10;
+int* t = malloc(n * sizeof(int));
+
+if (t == NULL) {
+    /* L'allocation peut échouer : toujours vérifier */
+    fprintf(stderr, "Erreur d'allocation\n");
+    exit(1);
+}
+
+for (int i = 0; i < n; i++) {
+    t[i] = i * i;  /* on utilise t exactement comme un tableau classique */
+}
+/* t[0]=0, t[1]=1, t[2]=4, t[3]=9, ... */
+```
+
+Une fois alloué, le bloc sur le tas se comporte exactement comme un tableau
+ordinaire : on peut l'indexer avec `[]`, le parcourir avec des pointeurs, le
+passer à des fonctions. La seule différence est qu'il faut le libérer
+manuellement.
+
+### `free` — libérer
+
+`free` rend au système d'exploitation le bloc mémoire précédemment alloué par
+`malloc`. Sans `free`, la mémoire reste réservée pour toute la durée de vie du
+processus — c'est une **fuite mémoire** (*memory leak*).
+
+```c
+free(t);   /* libère le bloc alloué par malloc */
+t = NULL;  /* bonne pratique : neutralise le pointeur pour détecter les erreurs */
+```
+
+Assigner `NULL` après `free` est une précaution défensive : si on tente
+accidentellement d'utiliser `t` après la libération, déréférencer `NULL`
+provoque un segfault immédiat et détectable, plutôt qu'une corruption silencieuse.
+
+`free(NULL)` est toujours sans effet — il est donc sûr d'appeler `free` sur un
+pointeur qui vaut potentiellement `NULL`.
+
+**Règle d'or :** chaque `malloc` doit être suivi d'exactement un `free`, ni
+plus, ni moins.
+
+| Erreur | Symptôme | Conséquence |
+|---|---|---|
+| Oublier `free` | Aucun symptôme immédiat | Fuite mémoire : le processus consomme de plus en plus de RAM jusqu'à épuisement |
+| Appeler `free` deux fois | Crash ou comportement erratique | Corruption du gestionnaire de tas (*double free*) — faille de sécurité exploitable |
+| Utiliser le pointeur après `free` | Valeurs aléatoires, crash différé | La zone mémoire a pu être réallouée à un autre objet (*use-after-free*) |
+| Déréférencer `NULL` | Segmentation fault immédiat | Crash propre — au moins l'erreur est détectée |
+| `malloc` sans vérifier `NULL` | Segfault ou calculs faux | Si le système est à court de mémoire, `t` vaut `NULL` et toute utilisation est un comportement indéfini |
+
+:::tip[`valgrind` : l'outil de détection de fuites]
+L'outil `valgrind` exécute votre programme dans un environnement instrumenté et
+rapporte toutes les fuites mémoire, les `free` doubles, et les accès invalides.
+C'est un outil indispensable pour déboguer du code C avec de l'allocation
+dynamique :
+
+```bash
+valgrind --leak-check=full ./mon_programme
+```
+:::
+
+## Arithmétique de pointeurs
+
+En C, on peut additionner un entier à un pointeur. Contrairement à l'addition
+ord inaire, ce n'est pas un décalage en octets mais un décalage en **éléments**
+du type pointé : le compilateur multiplie automatiquement par `sizeof(T)`.
+
+```c
+int t[5] = {10, 20, 30, 40, 50};
+int* p = t;  /* p pointe sur t[0] */
+
+printf("%d\n", *p);       /* 10 */
+printf("%d\n", *(p + 1)); /* 20 */
+printf("%d\n", *(p + 2)); /* 30 */
+```
+
+Si `p` est de type `int*` et `sizeof(int) == 4` :
+
+$$\text{adresse}(p + n) = \text{adresse}(p) + n \times \text{sizeof}(\texttt{int})$$
+
+Cette règle garantit que l'arithmétique de pointeurs est cohérente quel que
+soit le type : `p + 1` pointe toujours vers l'élément suivant, que ce soit un
+`char` (1 octet), un `int` (4 octets) ou un `double` (8 octets).
+
+### Tableaux et pointeurs
+
+En C, le nom d'un tableau est **implicitement converti** en pointeur vers son
+premier élément dès qu'il est utilisé dans une expression. C'est ce qu'on
+appelle la *décroissance* (*decay*) du tableau en pointeur. Les deux notations
+sont donc équivalentes :
+
+```c
+int t[5] = {10, 20, 30, 40, 50};
+
+t[i]      ≡   *(t + i)
+*(t + i)  ≡   t[i]
+i[t]      ≡   t[i]    /* légal en C — symétrie de l'addition */
+```
+
+La dernière ligne est anecdotique mais révélatrice : `t[i]` n'est que du sucre
+syntaxique pour `*(t + i)`, et l'addition étant commutative, `*(i + t)` vaut
+la même chose, ce qui donne l'étrange `i[t]`. C'est parfaitement valide en C,
+bien qu'illisible — une curiosité qui illustre le vrai modèle sous-jacent.
+
+```c
+/* Parcourir un tableau avec un pointeur */
+for (int* p = t; p < t + 5; p++) {
+    printf("%d\n", *p);
+}
+```
+
+:::caution[Dépassement de bornes]
+Si `p` pointe vers `t` (un tableau de 5 éléments), alors `p + 6` est une
+**adresse invalide**. L'accès à `*(p + 6)` est un comportement indéfini.
+C ne vérifie jamais les bornes — c'est la cause des fameux *buffer overflows*,
+une faille de sécurité grave.
+:::
+
+### Différence de pointeurs
+
+On peut soustraire deux pointeurs du même tableau pour obtenir la distance en
+nombre d'éléments :
+
+```c
+int t[5] = {10, 20, 30, 40, 50};
+int* debut = t;
+int* fin   = t + 5;
+ptrdiff_t taille = fin - debut;  /* 5 */
+```
+
+## Chaînes de caractères en C
+
+C n'a pas de type « chaîne de caractères » natif. Une chaîne est simplement
+un **tableau de `char` terminé par le caractère nul `'\0'`** (octet de valeur
+0). C'est le `'\0'` final qui marque la fin de la chaîne — toutes les
+fonctions de la bibliothèque standard (`printf`, `strlen`, `strcpy`…)
+parent de l'adresse du premier caractère et avancent jusqu'à trouver ce
+sentinelle.
+
+```c
+char bonjour[] = "Bonjour";
+/* équivaut à : {'B','o','n','j','o','u','r','\0'} */
+/* taille : 8 octets (7 caractères + '\0') */
+
+printf("%s\n", bonjour);           /* Bonjour */
+printf("Longueur : %zu\n", strlen(bonjour));  /* 7 — ne compte pas le '\0' */
+```
+
+Une `char*` peut pointer vers le début d'une telle chaîne. Parcourir une
+chaîne avec un pointeur est idiomatique en C :
+
+```c
+char* p = bonjour;
+while (*p != '\0') {
+    printf("%c", *p);
+    p++;   /* avance au caractère suivant */
+}
+printf("\n");
+```
+
+:::caution[Littéraux de chaînes et `const`]
+Un littéral comme `"Bonjour"` est stocké dans une zone mémoire en lecture
+seule. Écrire dans cette mémoire via un `char*` est un comportement indéfini
+(souvent un segfault). Pour pouvoir modifier une chaîne, il faut la copier
+dans un tableau comme ci-dessus (`char bonjour[]`), ou utiliser `malloc`.
+
+```c
+char*  s1 = "Bonjour";    /* pointeur vers la zone constante — NE PAS modifier */
+char   s2[] = "Bonjour";  /* copie dans un tableau sur la pile — modifiable */
+```
+:::
+
+## Structures de données avec pointeurs
+
+Les pointeurs sont la clé pour construire des structures de données dont la
+taille et la forme évoluent à l'exécution. En Haskell, ce genre de structure
+existe naturellement grâce à l'évaluation paresseuse et au garbage collector.
+En C, on la construit manuellement avec `malloc` et des pointeurs.
+
+### Liste chaînée
+
+Une liste chaînée est composée de **nœuds** alloués dynamiquement, chacun
+contenant une valeur et un pointeur vers le nœud suivant. Le dernier nœud
+pointe vers `NULL`. Cette structure peut croître ou rétrécir à l'exécution
+sans réallocation.
+
+```c
+typedef struct Noeud Noeud;
+
+struct Noeud {
+    int    valeur;
+    Noeud* suivant;  /* pointeur vers le nœud suivant, NULL si dernier */
+};
+
+/* Créer un nœud */
+Noeud* creer_noeud(int val) {
+    Noeud* n = malloc(sizeof(Noeud));
+    if (!n) return NULL;   /* toujours vérifier malloc */
+    n->valeur  = val;
+    n->suivant = NULL;
+    return n;
+}
+
+/* Afficher une liste */
+void afficher(Noeud* liste) {
+    while (liste != NULL) {
+        printf("%d -> ", liste->valeur);
+        liste = liste->suivant;  /* avance vers le nœud suivant */
+    }
+    printf("NULL\n");
+}
+
+/* Libérer une liste */
+void liberer(Noeud* liste) {
+    while (liste != NULL) {
+        Noeud* suivant = liste->suivant;  /* sauvegarder avant free ! */
+        free(liste);                      /* libère le nœud courant */
+        liste = suivant;                  /* passe au suivant */
+    }
+}
+```
+
+La fonction `liberer` illustre un piège classique : il faut sauvegarder
+`liste->suivant` *avant* d'appeler `free(liste)`, car après la libération,
+lire `liste->suivant` serait un accès après libération (*use-after-free*).
+
+```c
+int main(void) {
+    Noeud* liste = creer_noeud(1);
+    liste->suivant = creer_noeud(2);
+    liste->suivant->suivant = creer_noeud(3);
+
+    afficher(liste);  /* 1 -> 2 -> 3 -> NULL */
+    liberer(liste);
+    return 0;
+}
+```
+
+:::info[Comparaison avec Haskell]
+```haskell
+-- Haskell : liste définie récursivement, gestion mémoire automatique
+data Liste = Nil | Cons Int Liste
+
+afficher :: Liste -> String
+afficher Nil         = "Nil"
+afficher (Cons x xs) = show x ++ " -> " ++ afficher xs
+```
+
+En Haskell, le garbage collector libère automatiquement les nœuds non
+référencés. En C, chaque `malloc` doit être suivi d'un `free`.
+:::
+
+## Pointeurs vers des fonctions
+
+En C, le code compilé d'une fonction occupe lui aussi une adresse en mémoire.
+On peut stocker cette adresse dans un **pointeur de fonction**, ce qui permet
+de choisir à l'exécution quelle fonction appeler — exactement comme on passe
+une fonction en argument en Haskell.
+
+La syntaxe d'un type pointeur de fonction peut dérouter au premier abord :
+`int (*operation)(int, int)` se lit « `operation` est un pointeur vers une
+fonction qui prend deux `int` et retourne un `int` ».
+
+```c
+int additionner(int a, int b) { return a + b; }
+int multiplier(int a, int b)  { return a * b; }
+
+/* Déclaration : pointeur vers une fonction (int, int) → int */
+int (*operation)(int, int);
+
+operation = additionner;              /* pointe vers additionner */
+printf("%d\n", operation(3, 4));  /* 7  */
+
+operation = multiplier;               /* pointe maintenant vers multiplier */
+printf("%d\n", operation(3, 4));  /* 12 */
+```
+
+Les pointeurs de fonctions permettent d'implémenter en C des fonctions d'ordre
+supérieur analogues à celles de Haskell. Le troisième paramètre de la fonction
+ci-dessous est une fonction :
+
+```c
+/* Équivalent C de map : applique f à chaque élément du tableau */
+void appliquer(int* t, int n, int (*f)(int)) {
+    for (int i = 0; i < n; i++) {
+        t[i] = f(t[i]);
+    }
+}
+
+int doubler(int x) { return x * 2; }
+int carrer(int x)  { return x * x; }
+
+int t[] = {1, 2, 3, 4, 5};
+appliquer(t, 5, doubler);  /* t = {2, 4, 6, 8, 10} */
+appliquer(t, 5, carrer);   /* t = {4, 16, 36, 64, 100} */
+```
+
+On retrouve ici l'idée de l'ordre supérieur de Haskell — `appliquer` est
+l'équivalent de `map` — mais la gestion des types est entièrement manuelle et
+aucune sécurité de type n'est garantie à la composition.
+
+:::tip[`typedef` pour simplifier les types de fonctions]
+La syntaxe des pointeurs de fonctions est notoire pour sa complexité. `typedef`
+crée un alias lisible :
+
+```c
+typedef int (*OperationBinaire)(int, int);
+
+OperationBinaire op = additionner;
+printf("%d\n", op(3, 4));  /* 7 */
+```
+
+Avec ce `typedef`, on peut déclarer des tableaux de fonctions, des paramètres
+de fonctions et des champs de structures de façon beaucoup plus lisible.
+:::

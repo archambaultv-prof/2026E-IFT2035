@@ -1,0 +1,313 @@
+---
+sidebar_position: 7
+sidebar_label: Fonctions et paramètres
+description: Fonctions, procédures, passage de paramètres par valeur, référence, nom et valeur-résultat.
+---
+
+# Fonctions et passage de paramètres
+
+## Fonctions et procédures
+
+En mathématiques, une fonction associe des arguments à une valeur de retour,
+et son seul rôle est de *calculer* cette valeur — elle n'a aucun effet sur
+l'état extérieur. En Haskell, toutes les fonctions partagent cette propriété
+par construction : elles prennent des valeurs, retournent des valeurs, et ne
+modifient rien.
+
+En programmation impérative, les sous-programmes peuvent aussi lire et écrire
+de la mémoire, afficher des données ou interagir avec le système d'exploitation
+sans nécessairement retourner une valeur utile. On distingue traditionnellement
+deux cas selon leur rôle principal :
+
+| | **Fonction** | **Procédure** |
+|---|---|---|
+| Retourne une valeur | Oui | Non (ou `void`) |
+| Opère par | Calcul et retour | Modification des arguments / effets de bord |
+| Exemple Haskell | `carre x = x * x` | — (inexistant en Haskell pur) |
+| Exemple C | `int carre(int x) { return x * x; }` | `void afficher(int x) { printf("%d\n", x); }` |
+
+En C, cette distinction est codée dans le type de retour :
+
+```c
+/* Fonction : retourne une valeur */
+int additionner(int a, int b) {
+    return a + b;
+}
+
+/* Procédure : retourne void */
+void afficher(int x) {
+    printf("La valeur est : %d\n", x);
+}
+```
+
+## Paramètre formel et paramètre actuel
+
+```c
+int carre(int x) {   /* x est le paramètre formel */
+    return x * x;
+}
+
+int resultat = carre(5);  /* 5 est le paramètre actuel */
+```
+
+- Le **paramètre formel** (`x`) est le nom utilisé dans la définition de la
+  fonction — c'est un représentant du paramètre actuel.
+- Le **paramètre actuel** (`5`) est la valeur (ou l'expression) fournie lors
+  de l'appel.
+
+Le **mécanisme de passage de paramètres** définit le lien entre les deux.
+Concrètement, il répond à plusieurs questions essentielles : le paramètre
+formel reçoit-il une copie indépendante de la valeur, ou un accès direct à
+la variable de l'appelant ? L'expression passée est-elle évaluée avant l'appel
+ou seulement si la fonction en a besoin ? En cas de modification du paramètre
+formel, la variable de l'appelant est-elle affectée ?
+
+Ces questions semblent techniques, mais elles ont des conséquences profondes
+sur la façon dont on raisonne sur les programmes, sur les erreurs qu'on peut
+commettre, et sur les optimisations que le compilateur peut effectuer.
+
+## Passage par valeur (C)
+
+C'est le mécanisme utilisé par défaut en C — et aussi par Java pour les types
+primitifs, par Python pour les types immuables comme les entiers et les chaînes.
+
+> Le paramètre formel est une **nouvelle variable**, initialisée avec une
+> **copie** de la valeur du paramètre actuel. Les modifications faites sur le
+> paramètre formel n'affectent **pas** le paramètre actuel.
+
+L'intuition est celle d'une photocopie : la fonction travaille sur sa propre
+copy du document, et l'original reste intact chez l'appelant. Ce comportement
+est simple à analyser : l'appelant n'a pas à craindre que ses variables soient
+modifiées par surprise.
+
+```c
+void doubler(int x) {
+    x = x * 2;  /* modifie la copie locale */
+    printf("dans doubler : %d\n", x);  /* 10 */
+}
+
+int main(void) {
+    int n = 5;
+    doubler(n);
+    printf("après l'appel : %d\n", n);  /* toujours 5 ! */
+    return 0;
+}
+```
+
+```
+Avant l'appel :  n = 5
+Appel doubler(n) : une copie x = 5 est créée
+                   x = 10 (modification de la copie)
+Après l'appel :  n = 5 (inchangé)
+```
+
+:::info[Comparaison avec Haskell]
+Haskell utilise le **passage par nom** (*call by name* ou, en pratique,
+*call by need* / évaluation paresseuse) : le paramètre actuel est une
+expression qui n'est évaluée qu'au moment de son utilisation. Les modifications
+sont impossibles (immuabilité).
+
+```haskell
+doubler :: Int -> Int
+doubler x = x * 2
+-- x n'est pas une variable mutable — x est un nom pour la valeur reçue
+```
+:::
+
+### Limitation du passage par valeur
+
+L'isolation garantie par le passage par valeur devient une contrainte dès que
+l'on veut qu'une fonction *modifie* une variable de l'appelant. C'est le cas
+classique d'une fonction d'échange, d'une fonction qui lit une valeur depuis
+un fichier et la stocke quelque part, ou d'une fonction qui initialise plusieurs
+champs d'une structure. Que faire ?
+
+```c
+/* Tentative naïve — NE FONCTIONNE PAS */
+void echanger(int a, int b) {
+    int t = a;
+    a = b;
+    b = t;
+    /* a et b sont des copies — l'appelant ne voit rien */
+}
+
+int x = 1, y = 2;
+echanger(x, y);
+/* x vaut encore 1, y vaut encore 2 */
+```
+
+## Passage par référence (C++)
+
+En C++, le symbole `&` dans la déclaration du paramètre indique un passage
+par référence : le paramètre formel **est** la même variable que le paramètre
+actuel — pas une copie, pas un pointeur, mais un alias transparent. Modifier
+le paramètre formel modifie directement la variable de l'appelant, comme si
+la fonction y avait accès directement.
+
+```cpp
+// C++ seulement
+void echanger(int& a, int& b) {
+    int t = a;
+    a = b;
+    b = t;
+    /* modifie directement les variables de l'appelant */
+}
+
+int x = 1, y = 2;
+echanger(x, y);
+/* x vaut 2, y vaut 1 */
+```
+
+**C ne supporte pas le passage par référence directement.** On le simule avec
+des pointeurs.
+
+## Simulation du passage par référence en C (passage d'un pointeur)
+
+C ne supporte pas la notion de référence au sens C++. À la place, on peut
+passer **l'adresse** d'une variable — un pointeur vers sa case mémoire — par
+valeur. La fonction reçoit une *copie* de l'adresse, mais les deux copies
+pointent vers le même emplacement mémoire. Modifier `*a` à l'intérieur de la
+fonction modifie donc bien la variable originale de l'appelant.
+
+```c
+void echanger(int* a, int* b) {
+    int t = *a;  /* lit la valeur pointée par a */
+    *a = *b;     /* modifie la valeur pointée par a */
+    *b = t;      /* modifie la valeur pointée par b */
+}
+
+int x = 1, y = 2;
+echanger(&x, &y);  /* on passe les adresses de x et y */
+/* x vaut 2, y vaut 1 */
+```
+
+L'adresse de `x` est passée par valeur. La fonction reçoit une copie de
+l'adresse — mais les deux copies pointent vers la même case mémoire. Modifier
+`*a` modifie donc `x`.
+
+```
+Appel :  echanger(&x, &y)
+         a = adresse de x    (copie de l'adresse)
+         b = adresse de y    (copie de l'adresse)
+         *a  →  modifie x directement
+         *b  →  modifie y directement
+```
+
+Ce patron est très courant en C. Par exemple, `scanf` utilise ce mécanisme :
+
+```c
+int n;
+scanf("%d", &n);  /* scanf a besoin de l'adresse pour écrire dans n */
+```
+
+## Passage par nom (Algol / Haskell)
+
+Dans le passage par nom, le paramètre actuel est une **expression non évaluée**.
+Chaque utilisation du paramètre formel provoque une réévaluation de l'expression.
+
+```
+/* Pseudo-code à portée dynamique avec passage par nom */
+int x = 1;
+void incrementer_deux_fois(nom n) {
+    n = n + 1;  /* évalue et ré-assigne l'expression passée */
+    n = n + 1;
+}
+incrementer_deux_fois(x);
+/* x vaut 3 */
+```
+
+**C n'a pas de passage par nom.** En Haskell, le passage par nom correspond à
+l'**évaluation paresseuse** (*lazy evaluation*) : une expression n'est évaluée
+que lorsqu'on en a besoin, et sa valeur est mémorisée (*call by need*).
+
+```haskell
+-- Haskell évalue 'expr' seulement si nécessaire
+f x = if True then 42 else x  -- 'x' n'est jamais évalué ici
+```
+
+Un effet notable du passage par nom : les effets de bord peuvent être dupliqués.
+Si C avait le passage par nom :
+```c
+/* imaginaire — C n'a pas de passage par nom */
+void double_lecture(nom c) {
+    char c1 = c;  /* lit un caractère */
+    char c2 = c;  /* lit un AUTRE caractère ! */
+}
+double_lecture(getchar());
+```
+
+## Passage par valeur-résultat (Ada)
+
+Ce mécanisme est un compromis entre passage par valeur et passage par référence.
+Il est utilisé en **Ada** sous le nom `in out`. L'idée est de combiner
+l'isolation du passage par valeur (la fonction travaille sur sa propre copie
+lors de son exécution) avec la capacité de retourner une valeur modifiée à
+l'appelant à la fin de l'appel.
+
+1. **À l'entrée** : le paramètre formel est initialisé avec la valeur du paramètre actuel (comme *par valeur*).
+2. **À la sortie** : la valeur finale du paramètre formel est copiée dans l'emplacement du paramètre actuel (comme *par référence*).
+
+On peut le simuler en C avec des pointeurs :
+
+```c
+void incrementer(int* p) {
+    int copie = *p;   /* copie à l'entrée */
+    copie = copie + 1;
+    *p = copie;       /* copie à la sortie */
+}
+```
+
+**Différence avec le passage par référence :** si deux paramètres pointent vers
+la même variable (*alias*), les résultats peuvent différer entre les deux modes.
+Avec le passage par référence, chaque écriture est immédiatement visible à
+travers l'alias. Avec le passage par valeur-résultat, les copies sont
+indépendantes pendant l'exécution, et la copie finale écrase la valeur
+précédente — les deux modes ne sont donc pas équivalents en présence d'alias.
+
+## Alias
+
+Un **alias** désigne deux noms différents pour le même emplacement mémoire.
+Les alias surgissent naturellement dès qu'on utilise des pointeurs : si deux
+pointeurs pointent vers la même case, modifier l'un modifie l'autre à son
+insu. C'est une des sources les plus insidieuses de bugs en C, car le code
+*semble* n'affecter qu'une seule variable alors qu'il en affecte deux.
+
+```c
+void foo(int* a, int* b) {
+    *a = 1;
+    *b = 2;
+    printf("%d\n", *a);  /* que vaut *a ici ? */
+}
+
+int x = 0;
+foo(&x, &x);  /* a et b sont des alias de x ! */
+/* *a vaut 2, pas 1 */
+```
+
+Les alias sont une source de bugs difficiles car une modification via `b`
+affecte `a` de façon invisible.
+
+:::caution[Alias et optimisation]
+Les alias posent aussi des problèmes aux compilateurs. Pour optimiser du code,
+le compilateur doit savoir si deux pointeurs peuvent pointer vers la même
+mémoire. C99 a introduit le mot-clé `restrict` pour indiquer qu'un pointeur
+est le seul chemin d'accès à sa mémoire — ce qui permet des optimisations plus
+agressives.
+
+```c
+void copier(int* restrict dst, const int* restrict src, int n) {
+    /* dst et src ne se chevauchent pas — le compilateur peut optimiser */
+    for (int i = 0; i < n; i++) dst[i] = src[i];
+}
+```
+:::
+
+## Récapitulatif
+
+| Mode | Langage(s) | Paramètre actuel | Modification visible par l'appelant ? |
+|---|---|---|---|
+| **Par valeur** | C, Java (primitifs), Haskell | Valeur copiée | Non |
+| **Par référence** | C++ (`&`), Pascal (`VAR`) | Alias de la variable | Oui |
+| **Par valeur + pointeur** | C (simulation) | Adresse copiée | Oui (via `*`) |
+| **Par nom** | Algol, Haskell (paresseux) | Expression non évaluée | Impossible (immuable) |
+| **Par valeur-résultat** | Ada (`in out`) | Copie entrée + copie sortie | Oui (à la sortie) |

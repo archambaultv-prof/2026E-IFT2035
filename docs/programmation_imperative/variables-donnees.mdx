@@ -1,0 +1,594 @@
+---
+sidebar_position: 4
+sidebar_label: Variables et données
+description: Variables, mémoire, types de données en C — struct, union, et comparaison avec Haskell.
+---
+
+# Variables et données
+
+## Variable = espace de stockage
+
+La notion de *variable* n'a pas le même sens en programmation fonctionnelle et
+en C. Cette différence est fondamentale et conditionne tout le reste du langage.
+
+En Haskell, une variable est un **nom lié à une valeur** : une fois définie,
+cette liaison ne change jamais. `x = 10` signifie que `x` *est* 10, pour
+toujours dans cette portée. Il n'y a pas de notion d'état qui évolue dans le
+temps.
+
+En C, en revanche, une variable est un **espace de stockage en mémoire** auquel
+on a donné un nom. Cet espace a une adresse, une taille, et un contenu qui peut
+être lu et modifié à tout moment. On peut voir une variable C comme une boîte
+étiquetée : on peut regarder ce qu'elle contient, et on peut y déposer autre
+chose.
+
+```c
+int x = 10;  /* x désigne une case mémoire de 4 octets contenant 10 */
+x = 20;      /* on modifie le contenu de cette case */
+```
+
+Pour être plus précis, la mémoire en C est modélisée comme un grand tableau
+d'octets numérotés. Chaque case de ce tableau a une **adresse** — un entier qui
+identifie sa position dans la mémoire. Une variable de type `int` occupe
+typiquement 4 cases consécutives. Son identifiant (`x`, `age`, `compteur`, …) est
+simplement un nom commode pour désigner la première de ces adresses.
+
+```
+Adresse :  1000  1001  1002  1003
+Contenu :  [ 0 ] [ 0 ] [ 0 ] [ 10 ]
+           ← int x = 10 (4 octets) →
+```
+
+Ici, l'entier 10 est représenté sur 4 octets. Les octets de poids faible
+contiennent 10 et les autres valent 0. (La disposition exacte dépend du
+boutisme — *endianness* — de la machine.)
+
+Cette vision « boîte en mémoire » a une conséquence importante : l'**effet de
+bord**. Modifier `x` dans une fonction peut affecter le reste du programme si
+d'autres parties du code font référence au même espace mémoire. C'est à la fois
+la puissance et le danger central de la programmation impérative.
+
+:::info[Comparaison Haskell / C]
+```haskell
+-- Haskell : x est un nom lié à la valeur 10, pour toujours
+x = 10
+```
+
+```c
+/* C : x est une case mémoire dont le contenu est initialement 10 */
+int x = 10;
+x = 20;  /* possible et courant */
+```
+
+En Haskell, écrire `x = 20` après `x = 10` serait une erreur de compilation
+(ou une redéfinition dans un contexte différent). En C, c'est une opération
+tout à fait ordinaire : on écrase le contenu de la case mémoire avec une
+nouvelle valeur.
+:::
+
+## Types de base en C
+
+Toute variable en C possède un **type** déclaré explicitement par le
+programmeur. Ce type remplit trois rôles simultanément : il indique au
+compilateur combien d'octets réserver en mémoire pour la variable, comment
+interpréter les bits qui y sont stockés, et quelles opérations sont légales
+sur cette valeur.
+
+Cette dernière dimension est particulièrement importante : les mêmes 4 octets
+en mémoire peuvent représenter un entier signé, un entier non signé, un
+flottant, ou quatre caractères selon le type déclaré. C ne stocke pas
+d'information de type à l'exécution — tout repose sur les déclarations faites
+à la compilation.
+
+### Entiers
+
+C offre plusieurs types entiers qui diffèrent principalement par leur taille
+et donc leur plage de valeurs représentables. Le choix du bon type est un
+compromis entre économie de mémoire et risque de dépassement (*overflow*).
+
+| Type | Taille typique | Plage (signé) |
+|---|---|---|
+| `char` | 1 octet | −128 à 127 |
+| `short` | 2 octets | −32 768 à 32 767 |
+| `int` | 4 octets | −2 147 483 648 à 2 147 483 647 |
+| `long` | 4 ou 8 octets | dépend de la plateforme |
+| `long long` | 8 octets | −9.2 × 10¹⁸ à 9.2 × 10¹⁸ |
+
+Les entiers signés utilisent la représentation en **complément à deux**. Dans
+ce schéma, le bit de poids fort indique le signe : 0 pour positif, 1 pour
+négatif. Cette représentation a l'avantage que les circuits d'addition
+fonctionnent identiquement pour les entiers signés et non signés.
+
+Chaque type peut aussi être déclaré `unsigned`, auquel cas il ne représente
+que des entiers positifs et sa plage maximale double. Par exemple,
+`unsigned int` va de 0 à 4 294 967 295.
+
+Une subtilité importante : le **dépassement entier signé** est un comportement
+indéfini en C. Si un calcul dépasse la plage de `int`, le compilateur est libre
+de générer n'importe quel code. En pratique, la valeur « s'enroule » sur la
+plupart des architectures — un `int` qui dépasse 2 147 483 647 redevient
+−2 147 483 648 — mais ce comportement n'est pas garanti.
+
+Les tailles ci-dessus sont *typiques* mais pas garanties par la norme C. Sur
+une plateforme 16 bits, `int` peut n'occuper que 2 octets. Pour des tailles
+garanties, C11 fournit `<stdint.h>` avec `int32_t`, `int64_t`, et leurs
+équivalents non signés `uint32_t`, `uint64_t`, etc. C'est la pratique
+recommandée dans tout code qui doit être portable.
+
+### Flottants
+
+Les types flottants représentent des nombres réels en notation scientifique
+binaire selon la norme **IEEE 754**. Un `float` de 32 bits consacre 1 bit au
+signe, 8 bits à l'exposant et 23 bits à la mantisse. Un `double` de 64 bits
+offre une précision bien supérieure avec 52 bits de mantisse.
+
+| Type | Taille | Précision |
+|---|---|---|
+| `float` | 4 octets | ~7 chiffres significatifs |
+| `double` | 8 octets | ~15 chiffres significatifs |
+
+La conséquence pratique de cette représentation est que les calculs en
+virgule flottante sont intrinsèquement approximatifs. La valeur `0.1` ne peut
+pas être représentée exactement en binaire, tout comme $\frac{1}{3}$ ne peut
+pas s'écrire avec un nombre fini de chiffres décimaux. Il faut donc éviter de
+comparer deux flottants avec `==` ; on teste plutôt si leur différence est
+inférieure à une tolérance : `fabs(a - b) < 1e-9`.
+
+En pratique, préférez toujours `double` à `float` sauf contrainte spécifique
+(embedded systems, calcul vectoriel, etc.). La différence de vitesse est
+négligeable sur les processeurs modernes, mais la perte de précision de
+`float` cause régulièrement des bugs difficiles à diagnostiquer.
+
+### Caractères
+
+```c
+char c = 'A';       /* stocke le code ASCII de 'A' = 65 */
+char newline = '\n'; /* caractère spécial : saut de ligne */
+char tab = '\t';    /* tabulation */
+```
+
+Un `char` est simplement un entier de 1 octet. `'A'` est juste une notation
+commode pour l'entier `65`. En réalité, C ne fait aucune distinction entre
+un caractère et un petit entier : `'A' + 1` vaut `66`, c'est-à-dire `'B'`.
+Cette équivalence est souvent exploitée pour convertir des lettres, par
+exemple `c - 'a'` donne la position d'une lettre minuscule dans l'alphabet
+(0 pour `'a'`, 25 pour `'z'`).
+
+Le codage utilisé est historiquement **ASCII** (American Standard Code for
+Information Interchange), qui associe les entiers 0 à 127 à des caractères
+de contrôle et aux caractères latins de base. Pour les textes multilingues,
+on utilise l'encodage **UTF-8**, mais cela dépasse le cadre de ce cours.
+
+### Booléens
+
+Le langage C, dans sa version originale (C89), n'a pas de type booléen natif.
+Cette décision de conception reflète la philosophie bas niveau du langage :
+un entier suffit pour représenter vrai et faux. Par convention, **0 est faux
+et tout entier non nul est vrai**. Ainsi, écrire `if (n)` est équivalent à
+`if (n != 0)`.
+
+C99 et C11 ont ajouté `<stdbool.h>` qui fournit le type `bool` et les
+constantes `true` et `false`. Il s'agit d'une surcouche syntaxique — `true`
+vaut 1 et `false` vaut 0 — mais elle améliore nettement la lisibilité du code.
+
+```c
+#include <stdbool.h>
+
+bool estPair = (x % 2 == 0);
+```
+
+### Énumérations
+
+Les énumérations permettent de définir un ensemble nommé de constantes
+entières. Elles améliorent la lisibilité du code en remplaçant des valeurs
+magiques (0, 1, 2…) par des noms significatifs.
+
+```c
+enum Couleur { ROUGE, VERT, BLEU };
+enum Couleur c = VERT;
+```
+
+Par défaut, les constantes sont numérotées à partir de 0 : `ROUGE = 0`,
+`VERT = 1`, `BLEU = 2`. On peut aussi assigner des valeurs explicites :
+`enum Priorité { BASSE = 1, MOYENNE = 5, HAUTE = 10 };`.
+
+Il faut garder en tête qu'une `enum` n'est pas un type distinct en C — c'est
+simplement un entier avec un nom. Le compilateur n'empêche pas d'écrire
+`enum Couleur c = 42;` même si 42 ne correspond à aucune constante définie.
+C'est une différence notable avec Haskell où un type algébrique garantit
+qu'une valeur ne peut appartenir qu'aux constructeurs déclarés.
+
+## Tableaux
+
+Un tableau est une **séquence contiguë en mémoire** d'éléments du même type.
+C'est la structure de données la plus fondamentale en C — tous les autres
+mécanismes de gestion de mémoire en sont dérivés ou s'y ramènent d'une façon
+ou d'une autre.
+
+Déclarer un tableau réserve un bloc mémoire contigu suffisamment grand pour
+contenir tous les éléments demandés, côte à côte, sans espacement :
+
+```c
+int notes[5] = {18, 15, 12, 17, 14};
+
+/* Accès par indice (commence à 0) */
+printf("%d\n", notes[0]);  /* 18 */
+printf("%d\n", notes[4]);  /* 14 */
+
+/* Modification */
+notes[2] = 20;
+```
+
+L'indexation commence à 0, par convention héritée de l'arithmétique de
+pointeurs : `notes[i]` se lit comme « l'élément situé *i* positions après le
+début du tableau ». L'adresse de chaque élément se calcule directement :
+
+$$\text{adresse}(\texttt{notes[i]}) = \text{adresse\_base} + i \times \text{sizeof(int)}$$
+
+Cette formule illustre pourquoi la contiguïté est précieuse : accéder à
+n'importe quel élément prend exactement le même temps, quel que soit l'indice.
+C'est ce qu'on appelle l'**accès en temps constant** (O(1)).
+
+La taille du tableau doit être connue à la compilation lorsqu'il est déclaré
+sur la pile (variable locale). Si vous ne connaissez la taille qu'à l'exécution,
+vous devrez allouer le tableau dynamiquement avec `malloc` — notion abordée dans
+la section sur les pointeurs.
+
+:::caution[Pas de vérification de bornes]
+En C, accéder à `notes[10]` quand le tableau a 5 éléments est un
+**comportement indéfini** : le compilateur ne vérifie pas les bornes. Le
+programme lit (ou écrit) dans la mémoire adjacente au tableau, qui peut
+appartenir à une autre variable, à des données de contrôle de la pile, ou à
+de la mémoire non mappée. C'est l'une des sources les plus fréquentes de bugs
+et failles de sécurité en C — les attaques par *buffer overflow* exploitent
+précisément ce mécanisme pour écraser des adresses de retour et détourner
+l'exécution d'un programme.
+:::
+
+## Pointeurs
+
+Puisque chaque variable occupe une adresse en mémoire, il est naturel de vouloir
+manipuler ces adresses directement. C'est précisément le rôle des **pointeurs** :
+un pointeur est une variable dont la valeur est l'**adresse d'une autre variable**.
+
+### Déclarer et initialiser un pointeur
+
+Le type `int*` se lit « pointeur vers un `int` ». On obtient l'adresse d'une
+variable avec l'opérateur `&` (*address-of*), et on accède à la valeur pointée
+avec l'opérateur `*` (*déréférencement*) :
+
+```c
+int x = 42;
+int* p = &x;   /* p contient l'adresse de x, par exemple 1000 */
+
+printf("%p\n", (void*)p);  /* affiche l'adresse, ex : 0x3E8 — voir note ci-dessous */
+printf("%d\n", *p);        /* déréférence : affiche 42 */
+
+*p = 100;      /* modifie x à travers le pointeur */
+printf("%d\n", x);  /* affiche 100 */
+```
+
+:::note[Le cast `(void*)` et le format `%p`]
+Le format `%p` de `printf` affiche une adresse mémoire. La norme C exige que
+le pointeur passé avec `%p` soit de type `void*` — un **pointeur générique**
+qui peut représenter l'adresse de n'importe quel objet, quel qu'en soit le
+type. Le préfixe `(void*)` est un **cast** (*transtypage*) : il demande au
+compilateur de traiter `p` comme un `void*` le temps de cet appel, sans
+toucher aux bits qui constituent l'adresse.
+
+En pratique, tous les pointeurs de données ont la même représentation en
+mémoire sur les architectures courantes, donc ce cast ne modifie pas la valeur.
+Il sert uniquement à satisfaire la norme et à éviter un avertissement du
+compilateur.
+:::
+
+On peut visualiser la situation ainsi :
+
+```
+  p        →   adresse 1000   →   x
+[ 1000 ]       [ 100 ]
+```
+
+`p` est une variable qui contient l'adresse 1000. À l'adresse 1000 se trouve
+la variable `x`, dont le contenu est 100 après la modification.
+
+### Le pointeur nul
+
+La valeur spéciale `NULL` (définie dans `<stddef.h>` ou `<stdlib.h>`) indique
+qu'un pointeur ne pointe vers rien. C'est la convention pour signaler
+l'absence de valeur ou la fin d'une structure chaînée. Déréférencer `NULL`
+provoque un **plantage** immédiat du programme (erreur de segmentation) — ce
+qui, paradoxalement, est un comportement *souhaitable* car il révèle le bug
+immédiatement plutôt que de corrompre silencieusement la mémoire.
+
+```c
+int* p = NULL;
+/* *p = 42; */  /* INTERDIT : plantage garanti (segfault) */
+
+if (p != NULL) {
+    *p = 42;  /* accès sûr, uniquement si p est valide */
+}
+```
+
+### Pointeurs et tableaux
+
+Il existe une relation étroite entre les pointeurs et les tableaux en C : le
+nom d'un tableau se convertit implicitement en un pointeur vers son premier
+élément. C'est pourquoi l'arithmétique `notes[i]` est équivalente à
+`*(notes + i)` — on avance le pointeur de `i` positions, puis on déréférence.
+
+### Pointeurs vers des structures
+
+Un pointeur peut également désigner une structure. C'est le cas courant
+lorsqu'on passe de grandes structures à des fonctions, ou qu'on construit des
+structures de données chaînées. L'opérateur `->` permet d'accéder à un champ
+d'une structure via un pointeur sans déréférencer explicitement :
+
+```c
+Personne* ptr = &paul;
+ptr->age = 24;         /* équivalent à (*ptr).age = 24 */
+```
+
+Cette mécanique est présentée en détail dans la section suivante.
+
+## Structures (`struct`)
+
+Jusqu'ici, tous les types que nous avons vus — `int`, `double`, `char`, tableaux
+— représentent des collections homogènes ou des valeurs atomiques. Mais un
+programme utile doit souvent manipuler des entités composées de plusieurs
+attributs de types différents : une personne a un nom (chaîne de caractères)
+et un âge (entier) ; un point dans le plan a une coordonnée x et une coordonnée
+y (deux flottants).
+
+En C, le mécanisme pour créer de tels types composites est la **structure**
+(`struct`). Une `struct` regroupe plusieurs variables de types potentiellement
+différents sous un même nom — c'est l'équivalent C d'un enregistrement ou d'un
+tuple nommé. Chaque variable au sein d'une struct s'appelle un **champ** ou
+**membre**.
+
+```c
+struct Personne {
+    char* nom;   /* pointeur vers une chaîne */
+    int   age;
+};
+
+struct Personne paul = {"Paul", 23};
+printf("Nom : %s, âge : %d\n", paul.nom, paul.age);
+```
+
+En mémoire, les champs d'une struct sont disposés séquentiellement : d'abord
+`nom`, puis `age`. La struct occupe donc au moins `sizeof(char*) + sizeof(int)`
+octets, mais potentiellement plus à cause du *padding* (voir plus bas).
+
+### `typedef` : simplifier les noms
+
+Par défaut, le type s'appelle `struct Personne` — le mot-clé `struct` est
+obligatoire. C'est verbeux. Le mécanisme `typedef` permet de définir un alias
+de type, ce qui évite de répéter `struct` à chaque utilisation.
+
+Sans `typedef`, il faut écrire `struct Personne` partout. Avec `typedef` :
+
+```c
+typedef struct Personne Personne;  /* Personne est maintenant un alias */
+
+Personne paul = {"Paul", 23};
+Personne marie = {"Marie", 30};
+```
+
+On combine souvent la définition et le `typedef` en une seule déclaration :
+
+```c
+typedef struct {
+    char* nom;
+    int   age;
+} Personne;
+```
+
+Cette forme est la plus courante dans le code C moderne. Le nom de la struct
+elle-même (`struct Personne`) peut même être omis quand on n'a pas besoin de
+s'y référer récursivement (par exemple dans une liste chaînée, il faut le
+conserver — voir l'exemple en fin de section).
+
+### Accès aux champs
+
+On accède aux champs d'une struct avec l'opérateur `.`. Si on dispose d'un
+*pointeur* vers une struct, on utilise l'opérateur `->` qui combine
+déréférencement et accès au champ.
+
+```c
+Personne p = {"Alice", 28};
+
+int a = p.age;       /* accès direct */
+p.age = 29;          /* modification */
+
+Personne* ptr = &p;
+int b = ptr->age;    /* accès via pointeur : équivalent à (*ptr).age */
+```
+
+L'opérateur `->` n'est qu'une commodité syntaxique : `ptr->age` est
+rigoureusement équivalent à `(*ptr).age`. Les parenthèses sont nécessaires
+dans la version longue car `.` est prioritaire sur `*`.
+
+### Padding et alignement
+
+Les processeurs modernes ne lisent pas la mémoire octet par octet : ils la
+lisent en mots de 4 ou 8 octets alignés sur des adresses multiples de leur
+taille. Lire un `int` de 4 octets situé à une adresse non multiple de 4
+oblige le processeur à faire deux accès mémoire au lieu d'un — ou provoque
+carrément une erreur sur certaines architectures.
+
+Pour éviter cela, le compilateur insère automatiquement des octets vides
+(**padding**) entre les champs d'une struct de façon à garantir que chaque
+champ commence à une adresse correctement alignée.
+
+```c
+struct Exemple {
+    char   initiale;  /* 1 octet */
+    /* 3 octets de padding ici ! */
+    int    age;       /* 4 octets, doit être aligné sur un multiple de 4 */
+};
+/* sizeof(struct Exemple) == 8, pas 5 */
+```
+
+```
+[ initiale | pad | pad | pad | age (4 octets) ]
+  0          1     2     3     4
+```
+
+Ce comportement surprend souvent les débutants. Utiliser `sizeof` pour
+connaître la taille réelle d'une struct est indispensable — ne supposez jamais
+que c'est la somme des tailles de ses champs.
+
+:::tip[Ordre des champs]
+Pour minimiser le padding (et donc la taille de la struct), déclarez les
+champs du plus grand au plus petit. Le compilateur place alors chaque champ
+directement après le précédent sans espacement, car les contraintes
+d'alignement sont automatiquement respectées :
+
+```c
+struct Optimisé {
+    int   age;       /* 4 octets, à l'adresse 0 */
+    char  initiale;  /* 1 octet,  à l'adresse 4 */
+    /* 3 octets de padding en fin */
+};
+```
+
+La taille est la même ici (8 octets), mais si on ajoutait un deuxième `char`,
+il se logerait à l'adresse 5 sans padding supplémentaire, alors que dans la
+version non optimisée il aurait nécessité 3 nouveaux octets de padding.
+:::
+
+## Unions
+
+Là où une `struct` alloue de la mémoire pour *tous* ses champs en même temps,
+une **union** permet à plusieurs champs de **partager le même espace mémoire**.
+À tout instant, une union ne contient effectivement qu'*une seule* valeur, mais
+cette valeur peut être interprétée selon différents types.
+
+La taille d'une union est égale à la taille de son plus grand membre — le
+compilateur réserve juste assez de mémoire pour que n'importe lequel des
+membres puisse y tenir.
+
+```c
+union Valeur {
+    int   entier;
+    double flottant;
+    char  caractere;
+};
+
+union Valeur v;
+v.entier = 42;
+printf("%d\n", v.entier);    /* 42 */
+
+v.flottant = 3.14;
+/* À partir de maintenant, v.entier est invalide — la mémoire a été réécrite */
+```
+
+Quand on assigne `v.flottant = 3.14`, les 8 octets de la zone mémoire sont
+réécrit avec la représentation IEEE 754 de 3.14. Si on lit ensuite `v.entier`,
+on obtient les 4 premiers de ces 8 octets interprétés comme un `int` — une
+valeur arbitraire sans signification. C ne sait pas quel champ est
+« actuellement valide » ; c'est entièrement la responsabilité du programmeur.
+
+:::caution[Danger des unions non taguées]
+Lire le mauvais champ d'une union ne provoque pas d'erreur à l'exécution : C
+ne fait aucune vérification. Le programme lit simplement les octets en mémoire
+et les interprète selon le type demandé, avec n'importe quel résultat. Ce type
+de bug est particulièrement difficile à diagnostiquer car il ne se manifeste
+pas toujours par un plantage immédiat.
+:::
+
+### Union taguée
+
+Pour utiliser les unions de façon sûre, on les combine systématiquement avec
+une `enum` qui indique quel champ est actuellement valide. Cette `enum`
+s'appelle un **tag** (étiquette), et la structure résultante est une
+**union taguée**. C'est exactement la même idée que les types algébriques de
+Haskell : on associe à chaque valeur une étiquette qui identifie sa « forme ».
+
+```c
+typedef struct {
+    enum { ENTIER, FLOTTANT } tag;
+    union {
+        int    entier;
+        double flottant;
+    } valeur;
+} Nombre;
+
+Nombre n;
+n.tag = ENTIER;
+n.valeur.entier = 42;
+
+/* Plus tard : */
+if (n.tag == ENTIER) {
+    printf("Entier : %d\n", n.valeur.entier);
+} else {
+    printf("Flottant : %f\n", n.valeur.flottant);
+}
+```
+
+Le tag joue le rôle que le constructeur joue en Haskell : il permet de savoir
+quelle interprétation donner aux bits stockés dans l'union. La discipline à
+respecter est simple mais cruciale — toujours mettre à jour le tag lors de
+l'écriture, toujours vérifier le tag avant la lecture.
+
+### Comparaison avec Haskell
+
+Les unions taguées en C correspondent directement aux **types algébriques** de
+Haskell. La ressemblance structurelle est frappante, mais la différence de
+sécurité est tout aussi importante.
+
+```haskell
+-- Haskell
+data Nombre = Entier Int | Flottant Double
+```
+
+```c
+/* C équivalent */
+typedef struct {
+    enum { ENTIER, FLOTTANT } tag;
+    union {
+        int    entier;
+        double flottant;
+    } valeur;
+} Nombre;
+```
+
+| Haskell | C |
+|---|---|
+| `data Nombre = Entier Int \| Flottant Double` | `struct` avec `enum` tag + `union` |
+| Constructeur `Entier 42` | Assigner `tag = ENTIER; valeur.entier = 42` |
+| Filtrage de motifs | `switch` sur le tag |
+| Système de types garantit la cohérence | Aucune garantie — responsabilité du programmeur |
+
+La grande différence est fondamentale : en Haskell, le **système de types**
+garantit statiquement qu'on ne peut pas accéder au mauvais constructeur. Si
+vous écrivez une fonction qui attend un `Entier` et que vous lui passez un
+`Flottant`, le compilateur Haskell refuse le programme. En C, rien n'interdit
+de lire `valeur.flottant` après avoir écrit dans `valeur.entier` — la
+corruption silencieuse est toujours possible. C'est au programmeur de maintenir
+l'invariant manuellement.
+
+:::info[Exemple complet : liste chaînée]
+Une liste chaînée illustre bien l'utilisation conjointe des structs et des
+pointeurs. On veut représenter `data Liste = Nil | Cons Int Liste` en C.
+L'idée est que chaque nœud contient une valeur entière et un pointeur vers
+le nœud suivant. Le dernier nœud pointe vers `NULL`, qui joue le rôle de `Nil`.
+
+Notez que la struct doit se référencer elle-même (le champ `suivant` est un
+pointeur vers un `Noeud`). C'est la raison pour laquelle on doit nommer la
+struct (`struct Noeud`) même quand on utilise `typedef` : il faut un nom
+disponible dès la déclaration du champ, avant que le `typedef` ne soit complet.
+
+```c
+typedef struct Noeud Noeud;
+
+struct Noeud {
+    int    valeur;
+    Noeud* suivant;  /* NULL pour le dernier élément */
+};
+```
+
+La construction d'un nœud utilise `malloc` (allocation dynamique) et la
+libération utilise `free` — sujets abordés dans la section sur les pointeurs.
+:::

@@ -1,0 +1,532 @@
+---
+sidebar_position: 9
+sidebar_label: Exceptions et gestion d'erreurs
+description: Gérer les états invalides — exceptions en Python, codes d'erreur et setjmp/longjmp en C, Maybe et Either en Haskell.
+---
+
+# Exceptions et gestion d'erreurs
+
+## Le problème : les états invalides
+
+Tout programme rencontre des situations imprévues : division par zéro, fichier
+introuvable, mémoire insuffisante, indice hors bornes. Ces situations sont
+souvent appelées des **erreurs** ou des **exceptions**, mais la terminologie
+varie selon les langages. La question n'est pas *si* ces situations surviennent,
+mais *comment les gérer* — et plus fondamentalement, *qui est responsable* de
+les gérer.
+
+Doit-on arrêter immédiatement le programme ? Retourner une valeur spéciale ?
+Laisser le code appelant décider ? Forcer la gestion via le système de types ?
+
+Trois langages, trois réponses radicalement différentes pour le même problème
+de fond.
+
+---
+
+## Python — les exceptions comme mécanisme de contrôle
+
+Python (comme Java, C++, Ruby…) utilise les **exceptions** : des objets
+spéciaux qui interrompent le flot normal d'exécution et remontent la pile
+d'appels jusqu'à trouver un gestionnaire. Le principe est simple : quand une
+fonction détecte une situation anormale, elle *lance* (*raise*) une exception.
+L'exécution s'arrête immédiatement et la recherche d'un gestionnaire commence
+en remontant la pile d'appels. Si aucun gestionnaire n'est trouvé, le programme
+se termine avec un message d'erreur.
+
+### Lancer et attraper une exception
+
+```python
+def diviser(a, b):
+    if b == 0:
+        raise ValueError("Division par zéro interdite")
+    return a / b
+
+try:
+    resultat = diviser(10, 0)
+    print(f"Résultat : {resultat}")  # jamais atteint
+except ValueError as e:
+    print(f"Erreur : {e}")          # "Erreur : Division par zéro interdite"
+finally:
+    print("Nettoyage (toujours exécuté)")
+```
+
+### La hiérarchie des exceptions Python
+
+```
+BaseException
+├── SystemExit          (sys.exit())
+├── KeyboardInterrupt   (Ctrl+C)
+└── Exception           (toutes les erreurs "normales")
+    ├── ValueError      (mauvaise valeur)
+    ├── TypeError       (mauvais type)
+    ├── FileNotFoundError
+    ├── ZeroDivisionError
+    ├── IndexError
+    └── ...
+```
+
+On peut créer ses propres exceptions :
+
+```python
+class SoldeInsuffisant(Exception):
+    def __init__(self, manque):
+        super().__init__(f"Solde insuffisant — manque {manque}€")
+        self.manque = manque
+
+def retirer(compte, montant):
+    if montant > compte["solde"]:
+        raise SoldeInsuffisant(montant - compte["solde"])
+    compte["solde"] -= montant
+
+try:
+    compte = {"solde": 100}
+    retirer(compte, 150)
+except SoldeInsuffisant as e:
+    print(e)          # "Solde insuffisant — manque 50€"
+    print(e.manque)   # 50
+```
+
+### Ce que font les exceptions sous le capot
+
+Une exception est un **goto non-local** : l'exécution saute à travers
+plusieurs niveaux de la pile d'appels pour atteindre le gestionnaire.
+
+```python
+def f():
+    g()
+
+def g():
+    h()
+
+def h():
+    raise RuntimeError("profond")
+
+try:
+    f()
+except RuntimeError as e:
+    print(f"Attrapé ici : {e}")
+```
+
+```
+f() appelle g()
+    g() appelle h()
+        h() lance RuntimeError
+    ← remontée de pile : h() se termine (sans retour normal)
+    ← remontée de pile : g() se termine
+← remontée de pile : f() se termine
+→ gestionnaire except dans main
+```
+
+Ce mécanisme s'appelle le **déroulement de pile** (*stack unwinding*). Chaque
+`try/except` installe un point de récupération. Quand une exception est lancée,
+le moteur Python remonte la pile jusqu'au premier `except` compatible.
+
+:::info[`finally` et le nettoyage]
+Le bloc `finally` s'exécute **toujours**, qu'une exception soit levée ou non.
+C'est le moyen Python de garantir le nettoyage des ressources :
+
+```python
+f = open("donnees.txt")
+try:
+    donnees = f.read()
+    traiter(donnees)
+except IOError as e:
+    print(f"Erreur lecture : {e}")
+finally:
+    f.close()   # exécuté dans tous les cas
+```
+
+L'idiome moderne préféré est `with` (gestionnaire de contexte), qui fait la
+même chose plus élégamment :
+
+```python
+with open("donnees.txt") as f:
+    donnees = f.read()
+    traiter(donnees)
+# f.close() appelé automatiquement, même en cas d'exception
+```
+:::
+
+---
+
+## C — pas d'exceptions, trois approches
+
+C n'a pas de mécanisme d'exception intégré, et ce n'est pas un oubli : c'est
+un choix délibéré qui reflète la philosophie du langage. C est conçu pour
+écrire des systèmes d'exploitation et du code proche du matériel, où le
+programmeur doit contrôler explicitement tout ce qui se passe. Les exceptions
+impliquent une gestion de la pile à l'exécution, des tables de déroulement, et
+un surcoût qui ne convient pas à ce contexte.
+
+Les programmes C gèrent les erreurs de trois façons principales, chacune avec
+ses compromis :
+
+### Approche 1 : codes de retour
+
+La convention la plus simple et la plus ancienne : une fonction retourne une
+valeur spéciale pour indiquer l'échec. Quand la valeur de retour normale est
+un entier, on utilise souvent `0` pour le succès et `-1` pour l'échec ;
+quand c'est un pointeur, `NULL` indique l'échec.
+
+```c
+/* Convention : retourne 0 = succès, -1 = échec */
+int diviser(int a, int b, int* resultat) {
+    if (b == 0) {
+        return -1;   /* erreur */
+    }
+    *resultat = a / b;
+    return 0;        /* succès */
+}
+
+int main(void) {
+    int r;
+    if (diviser(10, 0, &r) != 0) {
+        fprintf(stderr, "Erreur : division par zéro\n");
+    } else {
+        printf("Résultat : %d\n", r);
+    }
+    return 0;
+}
+```
+
+La bibliothèque standard C utilise cette convention partout :
+- `fopen` retourne `NULL` en cas d'échec
+- `malloc` retourne `NULL` si l'allocation échoue
+- `read`, `write` retournent `-1` en cas d'erreur
+
+### `errno` : plus d'information sur l'erreur
+
+Retourner `-1` ne dit pas *pourquoi* ça a échoué. La bibliothèque standard
+utilise la variable globale `errno` (définie dans `<errno.h>`) pour fournir
+un code d'erreur détaillé.
+
+```c
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+
+FILE* f = fopen("inexistant.txt", "r");
+if (f == NULL) {
+    /* errno contient le code d'erreur de l'OS */
+    printf("Erreur %d : %s\n", errno, strerror(errno));
+    /* → "Erreur 2 : No such file or directory" */
+    perror("fopen");   /* raccourci : affiche "fopen: No such file or directory" */
+}
+```
+
+:::caution[Limite des codes de retour]
+Les codes de retour ont deux problèmes majeurs :
+
+1. **Ils peuvent être ignorés** — le compilateur ne force pas à vérifier la
+   valeur de retour. Un programmeur distrait peut écrire `fopen(...)` sans
+   vérifier si c'est `NULL`.
+
+2. **Ils polluent la signature** — une fonction qui retourne normalement un
+   `double` doit maintenant retourner un code d'erreur, et le vrai résultat
+   passe par un paramètre pointeur.
+:::
+
+### Approche 2 : `goto` pour le nettoyage
+
+Quand plusieurs ressources doivent être libérées en cas d'erreur, les codes
+de retour mènent à du code répétitif : chaque étape doit vérifier l'erreur
+et libérer toutes les ressources allouées jusqu'à ce point. Le `goto` vers un
+bloc de nettoyage centralisé est la solution idiomatique en C pour éviter cette
+duplication. Cela peut sembler surprenant après avoir lu le chapitre sur la
+programmation structurée, mais c'est l'un des cas où `goto` est accepté comme
+unique bonne solution en pratique :
+
+```c
+int traiter(const char* nom_fichier) {
+    FILE*  f   = NULL;
+    char*  buf = NULL;
+    int    rc  = -1;
+
+    f = fopen(nom_fichier, "r");
+    if (!f) goto fin;
+
+    buf = malloc(4096);
+    if (!buf) goto fin;
+
+    /* traitement... */
+    rc = 0;   /* succès */
+
+fin:
+    free(buf);    /* free(NULL) est sans effet — toujours sûr */
+    if (f) fclose(f);
+    return rc;
+}
+```
+
+Ce patron (un seul point de sortie avec nettoyage centralisé) est largement
+utilisé dans le noyau Linux.
+
+### Approche 3 : `setjmp` / `longjmp` — le goto non-local
+
+Pour simuler de vraies exceptions (sauter à travers plusieurs niveaux de la
+pile), C fournit `setjmp` et `longjmp` dans `<setjmp.h>`. Ce mécanisme est
+basé sur la sauvegarde et la restauration du contexte d'exécution du processeur.
+
+```c
+#include <setjmp.h>
+
+jmp_buf point_de_retour;   /* sauvegarde l'état de la pile */
+
+void h(void) {
+    printf("h : erreur détectée\n");
+    longjmp(point_de_retour, 1);  /* saut non-local ! */
+    printf("jamais atteint\n");
+}
+
+void g(void) { h(); }
+void f(void) { g(); }
+
+int main(void) {
+    if (setjmp(point_de_retour) == 0) {
+        /* première exécution : setjmp retourne 0 */
+        printf("main : appel de f()\n");
+        f();
+        printf("jamais atteint\n");
+    } else {
+        /* retour depuis longjmp : setjmp retourne 1 */
+        printf("main : exception attrapée\n");
+    }
+    return 0;
+}
+```
+
+```
+main : appel de f()
+h : erreur détectée
+main : exception attrapée
+```
+
+`setjmp` sauvegarde le **contexte d'exécution** dans `jmp_buf` : le pointeur
+d'instruction (où reprendre l'exécution), le pointeur de pile (l'état de la
+pile à ce moment), et les registres du processeur. `longjmp` restaure ce
+contexte — la pile est *tronquée* à son état au moment du `setjmp`, et tous
+les cadres d'appels intermédiaires disparaissent. C'est un **goto qui traverse
+les couches de la pile d'appels**, exactement comme une exception Python.
+
+La différence cruciale avec Python est que le déroulement de pile en Python
+est *propre* : chaque frame est nettoyée dans l'ordre, les blocs `finally`
+sont exécutés. Avec `longjmp`, la pile est simplement abandonnée : aucun
+nettoyage, aucune libération des ressources allouées entre le `setjmp` et le
+`longjmp`.
+
+| Python | C (`setjmp`/`longjmp`) |
+|---|---|
+| `try:` | `if (setjmp(buf) == 0)` |
+| `raise Exception("msg")` | `longjmp(buf, code_erreur)` |
+| `except Exception as e:` | `else { /* code_erreur disponible */ }` |
+| `finally:` | Aucun équivalent automatique — à faire manuellement |
+
+:::caution[Limites de `setjmp`/`longjmp`]
+- **Pas de nettoyage automatique** : contrairement à Python, `longjmp` ne
+  dérouille pas la pile proprement — aucun destructeur, aucun `finally`.
+  Les ressources allouées entre `setjmp` et `longjmp` sont perdues.
+- **Variables locales** : les variables locales modifiées entre `setjmp` et
+  `longjmp` peuvent avoir une valeur indéfinie à la réception (sauf si
+  déclarées `volatile`).
+- **Rarement utilisé** en pratique, sauf dans les interpréteurs et les
+  parseurs qui ont besoin de remonter une longue pile d'appels.
+:::
+
+---
+
+## Haskell — les erreurs sont des valeurs
+
+Haskell adopte une philosophie fondamentalement différente : **dans le code
+pur, une erreur n'est pas un saut de contrôle, c'est une valeur**. Cette idée
+est directement liée à la nature des fonctions pures : une fonction pure doit
+retourner quelque chose pour *tout* argument possible. Si la division est
+impossible quand `b = 0`, alors `diviser` ne retourne pas un simple `Int` —
+elle retourne *soit* un `Int` *soit* rien du tout. C'est exactement ce que
+capture le type `Maybe Int`.
+
+Cette approche déplace la gestion d'erreur du domaine du flot de contrôle vers
+le domaine des types. L'erreur n'est plus un événement exceptionnel qui
+interrompt le programme — c'est une valeur normale que le système de types
+force à traiter explicitement.
+
+### `Maybe` — succès ou échec simple
+
+Le type `Maybe a` représente un calcul qui peut réussir (`Just valeur`) ou
+échouer (`Nothing`), sans information supplémentaire sur la cause.
+
+```haskell
+diviser :: Int -> Int -> Maybe Int
+diviser _ 0 = Nothing        -- échec
+diviser a b = Just (a `div` b)  -- succès
+
+-- Utilisation
+main :: IO ()
+main = case diviser 10 0 of
+    Nothing -> putStrLn "Erreur : division par zéro"
+    Just r  -> putStrLn ("Résultat : " ++ show r)
+```
+
+Les fonctions de la bibliothèque standard utilisent `Maybe` partout :
+
+```haskell
+-- lookup : cherche une clé dans une liste d'associations
+lookup :: Eq k => k -> [(k, v)] -> Maybe v
+
+annuaire = [("Alice", "555-1234"), ("Bob", "555-5678")]
+
+case lookup "Charlie" annuaire of
+    Nothing  -> putStrLn "Introuvable"
+    Just tel -> putStrLn ("Téléphone : " ++ tel)
+```
+
+### Chaîner les erreurs avec `>>=`
+
+Utiliser `Maybe` seul serait fastidieux : si chaque étape d'un calcul peut
+échouer, on devrait vérifier `Nothing` manuellement à chaque étape, ce qui
+conduit à une cascade de `case` imbriqués. La force de `Maybe` vient de son
+intégration avec la notion de **monade** : l'opérateur `>>=` (*bind*) permet
+de *chaîner* des calculs qui peuvent échouer, en court-circuitant
+automatiquement le reste dès qu'une étape retourne `Nothing` :
+
+```haskell
+-- Sans Maybe : vérification manuelle à chaque étape
+calculer :: Int -> Int -> Int -> Maybe Int
+calculer a b c =
+    case diviser a b of
+        Nothing -> Nothing
+        Just r1 -> case diviser r1 c of
+            Nothing -> Nothing
+            Just r2 -> Just (r2 + 1)
+
+-- Avec >>= : la propagation est automatique
+calculer' :: Int -> Int -> Int -> Maybe Int
+calculer' a b c =
+    diviser a b >>= \r1 ->
+    diviser r1 c >>= \r2 ->
+    Just (r2 + 1)
+
+-- Ou avec la notation do (syntaxe plus lisible) :
+calculer'' :: Int -> Int -> Int -> Maybe Int
+calculer'' a b c = do
+    r1 <- diviser a b    -- si Nothing, tout s'arrête ici
+    r2 <- diviser r1 c   -- si Nothing, tout s'arrête ici
+    return (r2 + 1)
+```
+
+Si `diviser a b` retourne `Nothing`, les lignes suivantes ne sont pas
+exécutées — exactement comme une exception, mais sans saut de contrôle.
+
+### `Either` — succès ou échec avec information
+
+`Maybe` ne donne aucune information sur la *raison* de l'échec. `Either e a`
+permet de transporter un message d'erreur. La convention est mnémotechnique :
+`Right` (*droite*) pour la valeur *correcte*, `Left` (*gauche*) pour l'erreur.
+
+- `Left e` : échec, avec une valeur d'erreur de type `e`
+- `Right a` : succès, avec une valeur de type `a`
+
+```haskell
+data ErreurCalcul = DivisionParZero | DepassementCapacite
+    deriving (Show)
+
+diviser :: Int -> Int -> Either ErreurCalcul Int
+diviser _ 0 = Left DivisionParZero
+diviser a b
+    | abs (a `div` b) > 1000000 = Left DepassementCapacite
+    | otherwise                 = Right (a `div` b)
+
+main :: IO ()
+main = case diviser 10 0 of
+    Left DivisionParZero     -> putStrLn "Erreur : division par zéro"
+    Left DepassementCapacite -> putStrLn "Erreur : dépassement"
+    Right r                  -> putStrLn ("Résultat : " ++ show r)
+```
+
+`Either` est l'analogue direct des exceptions typées de Python — mais c'est
+une **valeur**, pas un mécanisme de contrôle.
+
+### `error` — l'exception non récupérable
+
+Pour les situations vraiment imprévues (bugs de programmation, invariants
+violés), Haskell a `error` :
+
+```haskell
+diviser :: Int -> Int -> Int
+diviser _ 0 = error "diviser : division par zéro"
+diviser a b = a `div` b
+```
+
+`error` lance une exception Haskell qui, si elle n'est pas attrapée, termine
+le programme avec un message. C'est l'équivalent d'une `RuntimeError` Python
+non capturée.
+
+### Exceptions dans le code `IO`
+
+Pour les erreurs d'entrée/sortie (fichiers, réseau…), Haskell fournit un
+mécanisme d'exceptions proche de Python, mais réservé au code `IO` :
+
+```haskell
+import Control.Exception
+import System.IO.Error (isDoesNotExistError)
+
+lireFichier :: FilePath -> IO ()
+lireFichier chemin = do
+    contenu <- readFile chemin   -- peut lancer une IOException
+    putStr contenu
+  `catch` \(e :: IOException) ->
+    if isDoesNotExistError e
+        then putStrLn ("Fichier introuvable : " ++ chemin)
+        else putStrLn ("Erreur I/O : " ++ show e)
+```
+
+---
+
+## Comparaison des trois approches
+
+| Aspect | Python | C | Haskell |
+|---|---|---|---|
+| Mécanisme principal | `try/except/raise` | Codes de retour + `goto` | `Maybe` / `Either` |
+| Mécanisme bas niveau | Déroulement de pile (VM) | `setjmp`/`longjmp` | Exceptions `IO` (pour les effets) |
+| Type de l'erreur | Objet exception (hiérarchie) | Entier ou `NULL` | Valeur algébrique |
+| Propagation automatique | Oui (remontée de pile) | Non (manuelle) | Oui (via `>>=` / `do`) |
+| Erreur ignorable ? | Non (plante si non attrapée) | Oui (rien n'oblige à vérifier) | Non (le type force la gestion) |
+| Nettoyage garanti | `finally` / `with` | Manuel (`goto` + `free`) | Automatique (GC) |
+| Code pur vs I/O | Pas de distinction | Pas de distinction | Séparé par le système de types |
+
+### La différence fondamentale
+
+En Python et C, une erreur est un **événement** qui perturbe le flot de
+contrôle. En Haskell, une erreur dans le code pur est une **valeur** — le
+type `Maybe Int` signifie littéralement « un entier qui existe peut-être ». Le
+compilateur Haskell **force** le programmeur à gérer les deux cas. Il est
+impossible d'ignorer un `Maybe` par inadvertance.
+
+```python
+# Python : l'erreur peut être silencieusement ignorée
+resultat = diviser(10, 0)   # peut lever une exception
+print(resultat + 1)         # crash si on n'a pas mis try/except
+```
+
+```c
+/* C : le code de retour peut être ignoré sans avertissement */
+int r;
+diviser(10, 0, &r);   /* retourne -1 — mais on ne vérifie pas */
+printf("%d\n", r);    /* r contient une valeur indéfinie */
+```
+
+```haskell
+-- Haskell : le type Maybe force la gestion
+-- Ce code ne compile pas :
+-- resultat = diviser 10 0 + 1    -- erreur : on ne peut pas additionner Maybe Int et Int
+
+-- Il faut traiter les deux cas :
+resultat = case diviser 10 0 of
+    Nothing -> 0      -- valeur par défaut
+    Just r  -> r + 1
+```
+
+:::info[Résumé mnémotechnique]
+- **Python** : les erreurs *sautent* à travers la pile.
+- **C** : les erreurs *retournent* une valeur spéciale, à vous de vérifier.
+- **Haskell** : les erreurs *sont* la valeur, et le type vous oblige à les regarder.
+:::

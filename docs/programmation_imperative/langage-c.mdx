@@ -1,0 +1,283 @@
+---
+sidebar_position: 3
+sidebar_label: Le langage C
+description: Introduction au langage C — histoire, compilation, syntaxe de base et ressources pour apprendre.
+---
+
+# Le langage C
+
+## Histoire et importance
+
+Le langage C a été créé entre 1969 et 1973 par **Dennis Ritchie** aux Bell
+Labs, principalement pour réécrire le système d'exploitation Unix en un langage
+portable plutôt qu'en assembleur. Cette décision a eu des conséquences
+considérables : Unix a pu être porté sur de nombreuses architectures matérielles,
+et C s'est imposé comme le langage système de référence. C'est l'un des
+langages les plus influents de l'histoire de l'informatique. C a ensuite
+donné naissance à C++ (1983, Bjarne Stroustrup), Objective-C, Java, C#, et a
+influencé JavaScript, Python, Rust, et bien d'autres.
+
+:::info[Pourquoi apprendre C en 2026 ?]
+- **Omniprésent** : Linux, macOS, Windows, les pilotes matériels, les systèmes
+  embarqués, les bases de données (SQLite, PostgreSQL), les interpréteurs
+  Python et Ruby sont écrits en C.
+- **Proche de la machine** : C vous fait comprendre comment la mémoire fonctionne
+  réellement — ce que Java, Python ou Haskell cachent derrière des abstractions.
+- **Langage pivot** : comprendre C rend plus facile l'apprentissage de C++,
+  Rust, Go et même les langages de haut niveau.
+- **Performance** : quand les performances sont critiques, C reste une référence.
+:::
+
+
+
+## De l'assembleur au C
+
+Le langage C a été conçu comme une abstraction légère au-dessus de l'assembleur.
+Il reprend les mêmes concepts, avec une syntaxe lisible par les humains. Le
+compilateur traduit chaque construction C en quelques instructions assembleur ;
+la correspondance est directe et prévisible, ce qui permet aux programmeurs C
+de raisonner sur les performances de leur code avec précision.
+
+| Assembleur | C |
+|---|---|
+| Registres | Variables |
+| Adresses mémoire | Pointeurs |
+| Instructions de branchement | `if`, `while`, `goto` |
+| Données brutes | `struct`, `union` |
+
+C est donc un langage de **bas niveau avec une syntaxe de haut niveau** : il
+donne un contrôle précis sur la mémoire, tout en restant lisible.
+
+## Structure de la mémoire d'un programme C
+
+Un programme C en cours d'exécution utilise quatre zones mémoire distinctes :
+
+```
+┌─────────────────────────────┐  adresses hautes
+│  Pile (stack)               │  variables locales, paramètres
+│  ↓ croît vers le bas        │  allouées/libérées automatiquement
+├─────────────────────────────┤
+│                             │
+├─────────────────────────────┤
+│  Tas (heap)                 │  malloc / free
+│  ↑ croît vers le haut       │  libéré manuellement
+├─────────────────────────────┤
+│  Données (data / BSS)       │  variables globales, `static`
+├─────────────────────────────┤
+│  Code (text)                │  instructions compilées, littéraux
+└─────────────────────────────┘  adresses basses
+```
+
+- **La pile** (*stack*) : gérée automatiquement par le processeur. Chaque appel
+  de fonction crée un *cadre de pile* (*stack frame*) qui contient ses variables
+  locales et ses paramètres. Quand la fonction retourne, son cadre est détruit.
+  La pile a une taille limitée (typiquement 1 à 8 Mo) ; la dépasser provoque
+  un *stack overflow*.
+- **Le tas** (*heap*) : géré manuellement avec `malloc` et `free`. Le
+  programmeur est responsable de libérer la mémoire allouée. Une omission
+  cause une *fuite mémoire* ; libérer deux fois (*double free*) ou utiliser
+  un pointeur après libération (*use-after-free*) sont des bugs graves.
+- **Les données statiques** : variables globales et `static`, allouées une fois
+  pour toute la durée du programme.
+- **Le code** : les instructions compilées, en lecture seule. Les littéraux de
+  chaînes (`"Bonjour"`) sont aussi stockés ici, ce qui explique pourquoi on ne
+  peut pas les modifier.
+
+:::caution[Responsabilité du programmeur]
+En Haskell, un ramasse-miettes (*garbage collector*) libère automatiquement la
+mémoire non utilisée. En C, c'est entièrement la responsabilité du
+programmeur. Oublier un `free` crée une fuite mémoire ; libérer deux fois
+ou utiliser un pointeur après libération sont des bugs graves et difficiles à
+détecter.
+:::}
+
+## Compilation
+
+Contrairement à Python ou à l'interpréteur `ghci` de Haskell, un programme C
+doit être **compilé** avant d'être exécuté. La compilation transforme le code
+source lisible par un humain en un fichier exécutable directement compris par
+le processeur. Ce processus se déroule en plusieurs étapes :
+
+```
+Code source (.c)
+    ↓ Préprocesseur (substitution des #include, #define…)
+Code prétraité
+    ↓ Compilateur (analyse, optimisation, génération d'assembleur)
+Code assembleur (.s)
+    ↓ Assembleur
+Code objet (.o)
+    ↓ Éditeur de liens (linking)
+Exécutable
+```
+
+En pratique, `gcc` et `clang` effectuent toutes ces étapes en une seule
+commande, mais elles ont bien lieu dans cet ordre.
+
+```bash
+# Compiler un fichier bonjour.c
+gcc bonjour.c -o bonjour
+
+# Exécuter le résultat
+./bonjour
+```
+
+Les compilateurs les plus utilisés sont **GCC** (GNU Compiler Collection) et
+**Clang** (développé par LLVM). Pour chaque système d'exploitation, il existe
+des distributions précompilées de ces compilateurs.
+
+Il est fortement recommandé d'activer les avertissements du compilateur avec
+les options `-Wall -Wextra`. Ces options activent des vérifications
+supplémentaires qui détectent de nombreuses erreurs courantes avant même
+l'exécution :
+
+```bash
+gcc -Wall -Wextra bonjour.c -o bonjour
+```
+
+Si vous utilisez Windows et VS Code, vous pouvez installer l'[extension C/C++](https://code.visualstudio.com/docs/languages/cpp) de
+Microsoft et suivre les instructions pour installer GCC ou Clang via WSL ou MinGW.
+
+## Premier programme : Hello, World!
+
+Voici le programme C le plus simple :
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+Décortiquons chaque élément :
+
+| Élément | Signification |
+|---|---|
+| `#include <stdio.h>` | Importe la bibliothèque standard d'entrées/sorties (*standard I/O*) |
+| `int main(void)` | Point d'entrée du programme ; retourne un entier (`int`), ne prend pas d'arguments (`void`) |
+| `printf(...)` | Affiche du texte sur la sortie standard |
+| `"\n"` | Caractère de saut de ligne |
+| `return 0;` | Indique que le programme s'est terminé avec succès (0 = succès) |
+
+:::info[Comparaison avec Haskell]
+```haskell
+-- Haskell
+main :: IO ()
+main = putStrLn "Hello, World!"
+```
+
+```c
+/* C */
+#include <stdio.h>
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+Les deux programmes font la même chose, mais en C `main` est une **fonction
+ordinaire** qui retourne un entier (le code de sortie du processus). En Haskell,
+`main` est une action `IO ()`.
+:::
+
+## Syntaxe de base
+
+### Variables et types
+
+En C, **chaque variable doit être déclarée avec son type** avant d'être
+utilisée. Il n'y a pas d'inférence de types. Cette exigence a deux avantages :
+elle force le programmeur à penser explicitement à la représentation de ses
+données, et elle permet au compilateur de vérifier que les opérations sont
+cohérentes avec les types utilisés.
+
+```c
+int age = 25;           /* entier */
+double temperature = 36.6;  /* flottant 64 bits */
+char initiale = 'A';    /* caractère */
+```
+
+### Affectation
+
+Le symbole `=` est l'**opérateur d'affectation** — il modifie la valeur d'une
+variable en écrivant dans l'espace mémoire qu'elle désigne. C'est
+fondamentalement différent de l'égalité mathématique : `x = x + 1` est un
+non-sens en mathématiques, mais une instruction parfaitement légitime en C
+qui signifie « lire la valeur de `x`, y ajouter 1, écrire le résultat dans `x`
+».
+
+```c
+int x = 5;   /* déclaration et initialisation */
+x = x + 1;  /* affectation : x vaut maintenant 6 */
+x = 10;      /* nouvelle affectation : x vaut maintenant 10 */
+```
+
+:::caution[`=` n'est pas `==`]
+En C, `=` est l'affectation et `==` est le test d'égalité. Écrire `if (x = 5)`
+au lieu de `if (x == 5)` est une erreur classique : le premier affecte 5 à `x`
+puis teste si `x` est non-nul (ce qui est toujours vrai !).
+:::
+
+### Commentaires
+
+```c
+/* Commentaire sur une ligne ou plusieurs lignes
+   en style C classique (C89) */
+
+// Commentaire sur une seule ligne (depuis C99)
+```
+
+### Blocs et instructions
+
+Un **bloc** est une suite d'instructions entre accolades `{ }`. Les
+instructions se terminent par un point-virgule `;`.
+
+```c
+{
+    int x = 10;
+    int y = 20;
+    int somme = x + y;
+    printf("Somme : %d\n", somme);
+}
+```
+
+### Fonctions
+
+```c
+/* Déclaration : type_retour nom(type1 param1, type2 param2) */
+int additionner(int a, int b) {
+    return a + b;
+}
+
+int main(void) {
+    int resultat = additionner(3, 4);
+    printf("3 + 4 = %d\n", resultat);
+    return 0;
+}
+```
+
+### `printf` et les formats
+
+`printf` utilise des **spécificateurs de format** pour afficher des valeurs :
+
+| Spécificateur | Type | Exemple |
+|---|---|---|
+| `%d` | `int` | `printf("%d", 42)` → `42` |
+| `%f` | `double` | `printf("%f", 3.14)` → `3.140000` |
+| `%.2f` | `double` (2 décimales) | `printf("%.2f", 3.14159)` → `3.14` |
+| `%c` | `char` | `printf("%c", 'A')` → `A` |
+| `%s` | `char*` (chaîne) | `printf("%s", "bonjour")` → `bonjour` |
+| `%p` | pointeur | `printf("%p", ptr)` → adresse |
+
+## Les standards du langage C
+
+C a évolué au fil des années. Les versions importantes sont :
+
+| Standard | Année | Apports principaux |
+|---|---|---|
+| **K&R C** | 1978 | Première version, décrite dans le livre de Kernighan & Ritchie |
+| **C89 / ANSI C** | 1989 | Première standardisation officielle |
+| **C99** | 1999 | `//` commentaires, déclarations en milieu de bloc, `bool`, types à taille fixe |
+| **C11** | 2011 | Threads, atomiques, limites d'alignement |
+| **C17** | 2017 | Corrections mineures (standard actuel le plus utilisé) |
+| **C23** | 2023 | Mot-clé `bool`, `nullptr`, attributs standard |

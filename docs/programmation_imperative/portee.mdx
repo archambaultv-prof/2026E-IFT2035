@@ -1,0 +1,280 @@
+---
+sidebar_position: 5
+sidebar_label: Portée des variables
+description: Portée lexicale et dynamique, identifiant vs variable, portée en C.
+---
+
+# Portée des variables
+
+## Identifiant, variable et valeur
+
+Trois notions distinctes sont souvent confondues, surtout quand on vient de la
+programmation fonctionnelle où elles se confondent presque toujours :
+
+| Terme | Définition |
+|---|---|
+| **Identifiant** | Le nom textuel : `x`, `compteur`, `nom` |
+| **Variable** | L'espace de stockage associé à un identifiant à un endroit précis du programme |
+| **Valeur** | Le contenu présent dans l'espace de stockage |
+
+Le même identifiant peut désigner plusieurs variables différentes selon l'endroit
+où on se trouve dans le code. Deux déclarations `int x` dans deux blocs
+d ifférents créent deux espaces mémoire distincts, qui partagent simplement le
+même nom.
+
+```c
+void foo(void) {
+    int x = 1;   /* variable x_1 */
+    {
+        int x = 2;   /* variable x_2 — différente de x_1 */
+        printf("%d\n", x);  /* affiche 2 — x désigne x_2 ici */
+    }
+    printf("%d\n", x);  /* affiche 1 — x désigne x_1 ici */
+}
+```
+
+La règle qui détermine, en chaque point du code, à quelle variable fait
+férence un identifiant est la règle de **portée**.
+
+## Portée (*scope*)
+
+La **portée** d'une déclaration est l'ensemble des points du programme où
+l'identifiant déclaré fait référence à cette déclaration. C'est la règle qui
+répond à la question « quand j'écris `x`, de quelle variable `x` parle-t-on ? ».
+
+La portée est une propriété *statique* : elle se détermine en lisant le code
+source, sans avoir à exécuter le programme. C'est une propriété fondamentale
+qui rend les programmes analysables.
+
+## Portée lexicale (statique)
+
+La **portée lexicale** (ou portée statique) est la règle la plus répandue dans
+les langages modernes. La résolution d'un identifiant est déterminée par la
+structure *textuelle* du code source, indépendamment de l'exécution : on peut
+la calculer à la compilation.
+
+> L'identifiant fait référence à la déclaration **syntaxiquement la plus proche**
+> dans le code source.
+
+« La plus proche » signifie : la déclaration du même identifiant qui se trouve
+dans le bloc le plus intérieur contenant le point d'utilisation. Si aucune
+déclaration locale n'existe, on remonte de bloc en bloc jusqu'à trouver une
+déclaration globale.
+
+C utilise exclusivement la portée lexicale. En C, la portée est délimitée par
+les blocs `{ }` :
+
+```c
+int x = 10;  /* portée globale : visible partout dans le fichier */
+
+void exemple(void) {
+    int y = 20;  /* portée locale à exemple() */
+
+    {
+        int z = 30;  /* portée locale au bloc intérieur */
+        printf("%d %d %d\n", x, y, z);  /* OK : x, y, z visibles */
+    }
+    /* z n'est plus visible ici */
+    printf("%d %d\n", x, y);  /* OK */
+}
+
+void autre(void) {
+    /* y et z ne sont pas visibles ici */
+    printf("%d\n", x);  /* OK : x est globale */
+}
+```
+
+### Ombrage (*shadowing*)
+
+Quand une déclaration intérieure utilise le même identifiant qu'une déclaration
+extérieure, la déclaration intérieure **masque** (ou *ombre*) la déclaration
+extérieure.
+
+```c
+int x = 100;  /* x globale */
+
+void foo(void) {
+    int x = 5;  /* x locale — masque la globale */
+    printf("%d\n", x);  /* 5, pas 100 */
+}
+```
+
+:::caution[L'ombrage est une source de bugs]
+Le compilateur accepte l'ombrage, mais il peut mener à des confusions. Avec
+`-Wshadow` (GCC/Clang), le compilateur avertit des ombrages.
+:::
+
+### Portée lexicale en Haskell
+
+Haskell utilise également la portée lexicale :
+
+```haskell
+x = 10
+
+foo = let x = 5  -- masque le x global
+      in x + 1   -- utilise le x local (5), résultat : 6
+```
+
+La portée lexicale rend l'analyse statique possible : on peut déterminer à la
+lecture du code quelle déclaration est utilisée, sans exécuter le programme.
+
+## Les quatre niveaux de portée en C
+
+En C, une variable peut avoir l'une de ces quatre portées :
+
+### 1. Portée de bloc
+
+Une variable déclarée dans un bloc `{ }` est visible uniquement à l'intérieur
+de ce bloc, à partir du point de déclaration.
+
+```c
+void foo(void) {
+    /* x n'est pas encore visible */
+    int x = 5;
+    /* x est visible de ici jusqu'à la fin du bloc */
+    printf("%d\n", x);
+}
+```
+
+### 2. Portée de fonction
+
+Les **étiquettes** (`label:`) ont une portée de fonction — elles sont visibles
+partout dans la fonction qui les contient (utilisé avec `goto`).
+
+```c
+void foo(void) {
+    goto fin;  /* peut sauter à 'fin' défini plus bas */
+    printf("jamais affiché\n");
+fin:
+    printf("fin\n");
+}
+```
+
+### 3. Portée de fichier
+
+Une variable ou fonction déclarée en dehors de tout bloc a une portée de
+fichier — elle est visible dans tout le fichier, de sa déclaration jusqu'à la
+fin du fichier.
+
+```c
+int compteur = 0;  /* portée de fichier */
+
+void incrementer(void) {
+    compteur++;  /* visible ici */
+}
+
+void afficher(void) {
+    printf("%d\n", compteur);  /* visible ici aussi */
+}
+```
+
+### 4. Portée de prototype de fonction
+
+Les noms de paramètres dans une déclaration de fonction (sans corps) ont une
+portée limitée à la déclaration.
+
+```c
+int additionner(int a, int b);  /* a et b ont une portée de prototype */
+```
+
+## Durée de vie (*lifetime*)
+
+La portée et la durée de vie sont deux concepts distincts qui sont souvent
+confondus. Une variable peut exister en mémoire sans être accessible par son
+nom, ou inversement, un identifiant peut faire référence à une variable dont
+la durée de vie est terminée (ce qui serait un bug).
+
+| Notion | Définition |
+|---|---|
+| **Portée** | Où dans le code l'identifiant est utilisable |
+| **Durée de vie** | Quand en mémoire la variable existe |
+
+### Variables automatiques (locales)
+
+Les variables locales sont dites **automatiques** parce que leur allocation et
+leur libération sont gérées automatiquement par le compilateur. Elles sont
+créées sur la pile à l'entrée du bloc qui les contient, et détruites à la
+sortie de ce bloc.
+
+```c
+void foo(void) {
+    int x = 5;  /* créée quand foo est appelée */
+    /* ... */
+}  /* x est détruite ici */
+```
+
+Un piège classique est de retourner un pointeur vers une variable locale : la
+variable est détruite à la sortie de la fonction, et le pointeur désigne alors
+de la mémoire invalide. Ce bug s'appelle un *dangling pointer* (pointeur
+pendant).
+
+```c
+int* dangeureux(void) {
+    int x = 42;
+    return &x;  /* INTERDIT : x sera détruite dès le retour */
+    /* le pointeur retournedésigne de la mémoire invalide */
+}
+```
+
+### Variables statiques
+
+Le mot-clé `static` change la durée de vie d'une variable locale : plutôt
+que d'être allouée à chaque appel, la variable est allouée *une seule fois* au
+démarrage du programme et persiste jusqu'à sa fin. Sa valeur est conservée
+entre les appels à la fonction.
+
+```c
+void compter(void) {
+    static int n = 0;  /* initialisée une seule fois */
+    n++;
+    printf("Appel n° %d\n", n);
+}
+
+/* compter(); → "Appel n° 1" */
+/* compter(); → "Appel n° 2" */
+/* compter(); → "Appel n° 3" */
+```
+
+### Variables globales
+
+Variables déclarées à l'extérieur de toute fonction : durée de vie = durée du
+programme.
+
+:::caution[Variables globales et état mutable]
+Les variables globales mutables sont une source de bugs difficiles car n'importe
+quelle fonction peut les modifier. En programmation fonctionnelle, l'état global
+mutable est inexistant. En C, leur usage doit être limité et justifié.
+:::
+
+## Portée dynamique
+
+La **portée dynamique** est l'alternative à la portée lexicale : l'identifiant
+fait référence à la déclaration **la plus récemment activée à l'exécution**.
+
+```
+/* Imaginons un langage à portée dynamique */
+x = 1
+foo() = print x     /* x non défini localement */
+
+bar() = { x = 2; foo(); }   /* affiche 2 (x de bar) */
+baz() = { x = 3; foo(); }   /* affiche 3 (x de baz) */
+```
+
+Avec la portée dynamique, une fonction a accès aux variables de son
+**environnement d'appel** (la fonction qui l'a appelée), pas de son
+environnement de définition.
+
+| Aspect | Portée lexicale | Portée dynamique |
+|---|---|---|
+| Résolution | À la compilation | À l'exécution |
+| Lisibilité | Plus facile à raisonner | Surprenant |
+| Utilisé par | C, Haskell, Python, Java | Emacs Lisp (ancien), TeX |
+| Avantage | Analyse statique possible | Passage d'arguments implicite |
+
+:::info[La portée dynamique en Haskell]
+Haskell a une façon contrôlée de simuler la portée dynamique via la typeclass
+`Reader` ou les variables `IORef`. C'est explicite et géré par le système de types,
+contrairement à la portée dynamique des vieux langages comme Emacs Lisp.
+:::
+
+**C utilise uniquement la portée lexicale.** C'est la norme des langages modernes.

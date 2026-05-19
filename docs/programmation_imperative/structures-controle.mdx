@@ -1,0 +1,512 @@
+---
+sidebar_position: 6
+sidebar_label: Structures de contrôle
+description: Flot de contrôle, goto, programmation structurée, boucles et conditionnelles en C.
+---
+
+# Structures de contrôle
+
+## Points de contrôle et état d'exécution
+
+En programmation impérative, l'exécution d'un programme progresse à travers
+une séquence de **points de contrôle** — des positions dans le code entre deux
+opérations. On peut imaginer un pointeur invisible qui avance dans le code
+ligne par ligne, indiquant quelle instruction est en train d'être exécutée.
+
+```c
+void exemple(char c) {
+    /* point 1 */
+    c = toupper(c);
+    /* point 2 */
+    putchar(c);
+    /* point 3 */
+}
+```
+
+L'**état d'exécution** à un instant donné est l'ensemble de tout ce qui
+détermine le comportement futur du programme. Il est composé de trois éléments :
+1. Le **point de contrôle courant** — quelle instruction va être exécutée
+2. Le **contenu de toutes les variables en mémoire** — les valeurs actuelles
+3. Les **entrées restantes à lire** et les **sorties déjà produites**
+
+Normalement, l'exécution progresse séquentiellement : après chaque instruction,
+on passe au point de contrôle suivant. Les **structures de contrôle** permettent
+de dévier de cet ordre linéaire : elles autorisent les sauts en avant
+(conditionnelles), les sauts en arrière (boucles), et les sauts arbitraires
+(`goto`).
+
+## `goto` : le saut inconditionnel
+
+`goto` est la structure de contrôle la plus primitive de C. Elle change le
+point d'exécution de façon arbitraire en sautant immédiatement à une
+**étiquette** (*label*) définie ailleurs dans la même fonction.
+
+```c
+int x = 1;
+
+debut:
+    x = x * 2;
+    if (x < 100) goto debut;
+
+printf("%d\n", x);  /* 128 */
+```
+
+`goto` correspond directement aux instructions de branchement en assembleur
+(`jmp`, `je`, `jne`, ...). C'est l'ancêtre de toutes les structures de
+contrôle : `if`, `while`, `for`, `switch` ne sont que des formes contraintes
+de `goto`, avec des restrictions syntaxiques qui rendent le flot de contrôle
+plus prévisible.
+
+:::info[Tout est un goto]
+Toutes les structures de contrôle que nous allons voir — `if`, `while`, `for`,
+`switch`, `break`, `continue` — ne sont que des **`goto` déguisés**, avec des
+contraintes syntaxiques qui rendent les programmes plus lisibles. Un compilateur
+les traduit toutes en branchements assembleur.
+:::
+
+### Programmes spaghetti
+
+L'utilisation abusive de `goto` produit des **programmes spaghetti** : le flot
+de contrôle saute dans tous les sens, rendant le code quasi impossible à
+comprendre et à maintenir.
+
+```c
+/* Exemple de code spaghetti — à ne PAS écrire */
+    i = 0;
+loop:
+    if (i >= 10) goto fin;
+    if (i % 2 == 0) goto pair;
+    goto impair;
+pair:
+    printf("%d est pair\n", i);
+    goto suite;
+impair:
+    printf("%d est impair\n", i);
+suite:
+    i++;
+    goto loop;
+fin:
+    ;
+```
+
+Dijkstra a écrit en 1968 la lettre célèbre *"Go To Statement Considered
+Harmful"*, qui a lancé le mouvement de la **programmation structurée**.
+
+## Programmation structurée
+
+L'idée de la programmation structurée est simple mais profonde :
+
+> La **structure syntaxique** du programme doit refléter son **flot de contrôle**.
+
+Un programme est **structuré** si chaque bloc a **un seul point d'entrée et un
+seul point de sortie**. Cela rend le code lisible : on peut comprendre ce que
+fait un bloc sans retracer tous les sauts possibles. Il suffit de lire le
+code de haut en bas, en tenant compte des structures imbriquées.
+
+Dijkstra a publié en 1968 la lettre célèbre *« Go To Statement Considered
+Harmful »*, qui a lancé le mouvement de la programmation structurée. Son
+argument central : utiliser `goto` librement rend impossible de raisonner sur
+un programme sans simuler son exécution mentalement, étape par étape.
+
+Les structures de contrôle structurées (`if`, `while`, `for`, `switch`) sont
+toutes des restrictions du `goto` qui garantissent cette propriété d'entrée
+unicale et de sortie unique.
+
+## Bloc séquentiel
+
+Le bloc `{ }` est la structure de base : il exécute ses instructions dans
+l'ordre, de haut en bas.
+
+```c
+{
+    int t = x;
+    x = y;
+    y = t;
+}
+```
+
+**Équivalent goto :**
+```c
+    int t = x;
+    x = y;
+    y = t;
+    /* implicitement : goto suite */
+suite:
+    ...
+```
+
+Un bloc séquentiel est simplement la suppression des `goto` explicites — le
+saut vers l'instruction suivante est implicite.
+
+## Conditionnelle : `if` / `else`
+
+```c
+if (condition) {
+    /* exécuté si condition != 0 */
+} else {
+    /* exécuté si condition == 0 */
+}
+```
+
+**Équivalent goto :**
+```c
+    if (!condition) goto sinon;
+    /* branche then */
+    goto fin_si;
+sinon:
+    /* branche else */
+fin_si:
+    ...
+```
+
+Le `if/else` est un `goto` conditionnel où les destinations sont définies par
+la structure syntaxique, pas par des étiquettes arbitraires.
+
+### Le problème du dangling else
+
+La syntaxe `if` sans accolades peut être ambiguë :
+
+```c
+if (x > 0)
+    if (y > 0)
+        printf("x et y positifs\n");
+else
+    printf("???\n");  /* à quel if appartient ce else ? */
+```
+
+En C, la règle est : **le `else` se rattache au `if` le plus proche**. Donc
+ici, le `else` appartient au `if (y > 0)`. Pour lever l'ambiguïté, utilisez
+toujours des accolades :
+
+```c
+if (x > 0) {
+    if (y > 0) {
+        printf("x et y positifs\n");
+    } else {
+        printf("x positif, y non positif\n");
+    }
+}
+```
+
+### Chaîne `else if`
+
+```c
+if (note >= 90) {
+    printf("A\n");
+} else if (note >= 80) {
+    printf("B\n");
+} else if (note >= 70) {
+    printf("C\n");
+} else {
+    printf("D\n");
+}
+```
+
+**Équivalent goto :**
+```c
+    if (note < 90) goto test_b;
+    printf("A\n"); goto fin;
+test_b:
+    if (note < 80) goto test_c;
+    printf("B\n"); goto fin;
+test_c:
+    if (note < 70) goto test_d;
+    printf("C\n"); goto fin;
+test_d:
+    printf("D\n");
+fin:
+    ...
+```
+
+## `switch` / `case`
+
+`switch` évalue une expression entière et saute directement à l'étiquette `case`
+correspondante.
+
+```c
+switch (jour) {
+    case 1: printf("Lundi\n");    break;
+    case 2: printf("Mardi\n");    break;
+    case 3: printf("Mercredi\n"); break;
+    default: printf("Autre\n");   break;
+}
+```
+
+**Équivalent goto :**
+```c
+    if (jour == 1) goto case1;
+    if (jour == 2) goto case2;
+    if (jour == 3) goto case3;
+    goto defaut;
+case1:
+    printf("Lundi\n");    goto fin_switch;
+case2:
+    printf("Mardi\n");    goto fin_switch;
+case3:
+    printf("Mercredi\n"); goto fin_switch;
+defaut:
+    printf("Autre\n");
+fin_switch:
+    ...
+```
+
+### Fallthrough : quand on oublie `break`
+
+Sans `break`, l'exécution **tombe** (*falls through*) dans le cas suivant :
+
+```c
+switch (x) {
+    case 1:
+        printf("un\n");
+        /* pas de break — tombe dans case 2 ! */
+    case 2:
+        printf("deux\n");
+        break;
+    case 3:
+        printf("trois\n");
+        break;
+}
+/* Si x == 1 : affiche "un" puis "deux" */
+/* Si x == 2 : affiche seulement "deux" */
+```
+
+Ce comportement est souvent un bug, mais il est parfois utilisé intentionnellement.
+
+:::info[Le device de Duff]
+Un exemple célèbre de fallthrough intentionnel est le « device de Duff »,
+une optimisation de copie mémoire qui entrelace un `switch` et un `while` :
+
+```c
+void copier(char *src, char *dst, int n) {
+    switch (n & 3) {           /* n % 4 */
+        case 0: while (n > 0) {
+                    *dst++ = *src++;
+        case 3:     *dst++ = *src++;
+        case 2:     *dst++ = *src++;
+        case 1:     *dst++ = *src++;
+                    n -= 4;
+                }
+    }
+}
+```
+
+Ce code copie `n` octets 4 par 4, avec le `switch` gérant le reste. Il
+fonctionne parce que C permet de sauter *à l'intérieur* d'une boucle avec un
+`goto` (ici déguisé en `switch`). C'est l'exemple parfait que `switch` n'est
+pas vraiment une structure proprement structurée.
+:::
+
+## Boucle `while`
+
+La boucle `while` est la structure fondamentale de répétition. Elle évalue
+sa condition avant chaque itération : si la condition est vraie (non nulle),
+le corps est exécuté, puis la condition est évaluée à nouveau. Si la condition
+est fausse dès le début, le corps n'est jamais exécuté.
+
+```c
+while (condition) {
+    /* corps */
+}
+```
+
+**Équivalent goto :**
+```c
+debut:
+    if (!condition) goto fin;
+    /* corps */
+    goto debut;
+fin:
+    ...
+```
+
+La boucle `while` est un `goto` conditionnel en arrière — un saut vers le
+passé. Cela peut sembler étrange : comment une instruction peut-elle retourner
+à une instruction précédente ? La réponse est que le processeur ne fait que
+sauter à une adresse antérieure dans le code compilé et réexécuter les mêmes
+instructions, mais dans un état différent (les variables ont été modifiées par
+le corps de la boucle).
+
+```c
+int i = 0;
+while (i < 5) {
+    printf("%d\n", i);
+    i++;
+}
+```
+
+La condition doit finir par devenir fausse, sinon la boucle est infinie. Il
+faut donc s'assurer que le corps modifie une variable qui influence la condition.
+
+## Boucle `do` / `while`
+
+La variante `do/while` est similaire à `while`, mais avec une différence
+esssentielle : la condition est testée **après** le corps, ce qui garantit que
+le corps s'exécute **au moins une fois**, même si la condition est fausse
+dès le départ.
+
+```c
+do {
+    /* corps — exécuté au moins une fois */
+} while (condition);
+```
+
+**Équivalent goto :**
+```c
+debut:
+    /* corps */
+    if (condition) goto debut;
+    ...
+```
+
+```c
+int reponse;
+do {
+    printf("Entrez un nombre positif : ");
+    scanf("%d", &reponse);
+} while (reponse <= 0);
+```
+
+## Boucle `for`
+
+La boucle `for` regroupe en une seule ligne les trois composantes qui
+définissent une boucle classique : l'initialisation, la condition d'arrêt, et
+la mise à jour à chaque itération. Elle ne fait rien de plus que `while` —
+c'est du sucre syntaxique — mais elle rend les boucles de comptage beaucoup
+plus lisibles.
+
+```c
+for (initialisation; condition; incrément) {
+    /* corps */
+}
+```
+
+C'est du sucre syntaxique pour `while` :
+
+```c
+initialisation;
+while (condition) {
+    /* corps */
+    incrément;
+}
+```
+
+**Équivalent goto :**
+```c
+    initialisation;
+debut:
+    if (!condition) goto fin;
+    /* corps */
+    incrément;
+    goto debut;
+fin:
+    ...
+```
+
+```c
+for (int i = 0; i < 10; i++) {
+    printf("%d\n", i);
+}
+```
+
+Les trois parties de `for` sont optionnelles. `for (;;)` est une boucle infinie :
+
+```c
+for (;;) {
+    /* boucle infinie — équivalent à while(1) */
+    if (condition_sortie) break;
+}
+```
+
+## `break` et `continue`
+
+Ces deux instructions permettent de modifier le flot d'exécution à l'intérieur
+d'une boucle sans avoir à modifier la condition ou ajouter des drapeaux
+boooléens. Elles rendent certains codes plus concis, mais doivent être utilisées
+avec modération pour ne pas rendre le flot de contrôle difficile à suivre.
+
+### `break`
+
+`break` sort **immédiatement** de la boucle ou du `switch` en cours, en
+sautant directement après l'accolade fermante. Il ne peut sortir que d'un
+seul niveau de boucle imbriqée à la fois.
+
+```c
+for (int i = 0; i < 100; i++) {
+    if (i * i > 50) {
+        break;  /* sort de la boucle */
+    }
+    printf("%d\n", i);
+}
+```
+
+**Équivalent goto :**
+```c
+    for (int i = 0; i < 100; i++) {
+        if (i * i > 50) goto apres_boucle;
+        printf("%d\n", i);
+    }
+apres_boucle:
+    ...
+```
+
+### `continue`
+
+`continue` saute le reste du corps et passe à l'itération suivante.
+
+```c
+for (int i = 0; i < 10; i++) {
+    if (i % 2 == 0) continue;  /* saute les pairs */
+    printf("%d\n", i);  /* affiche 1, 3, 5, 7, 9 */
+}
+```
+
+**Équivalent goto :**
+```c
+    for (int i = 0; i < 10; i++) {
+        if (i % 2 == 0) goto prochain;
+        printf("%d\n", i);
+prochain:
+        ;
+    }
+```
+
+## Récapitulatif : tout est un goto
+
+| Structure | `goto` équivalent |
+|---|---|
+| Bloc séquentiel `{ s1; s2; }` | `s1; goto apres_s1; apres_s1: s2;` (implicite) |
+| `if (c) { A } else { B }` | `if (!c) goto B_label; A; goto fin; B_label: B; fin:` |
+| `while (c) { A }` | `debut: if (!c) goto fin; A; goto debut; fin:` |
+| `do { A } while (c)` | `debut: A; if (c) goto debut;` |
+| `for (i; c; u) { A }` | `i; debut: if (!c) goto fin; A; u; goto debut; fin:` |
+| `break` | `goto apres_boucle` |
+| `continue` | `goto prochain_tour` |
+| `switch (x) { case v: A }` | `if (x == v) goto case_v; ... case_v: A;` |
+
+:::tip[Quand utiliser `goto` en C]
+Malgré sa mauvaise réputation, `goto` a un usage légitime en C : la
+**gestion d'erreurs avec nettoyage**. C n'a pas d'exceptions, et `goto` permet
+de sauter à un bloc de nettoyage unique à la fin d'une fonction.
+
+```c
+int traiter_fichier(const char* nom) {
+    FILE* f = fopen(nom, "r");
+    if (!f) goto erreur_fichier;
+
+    char* buf = malloc(1024);
+    if (!buf) goto erreur_malloc;
+
+    /* traitement... */
+    free(buf);
+    fclose(f);
+    return 0;
+
+erreur_malloc:
+    fclose(f);
+erreur_fichier:
+    return -1;
+}
+```
+
+C'est l'un des rares cas où `goto` améliore la clarté du code.
+:::
