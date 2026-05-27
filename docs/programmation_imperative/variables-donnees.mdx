@@ -412,50 +412,116 @@ dans la version longue car `.` est prioritaire sur `*`.
 ### Padding et alignement
 
 Les processeurs modernes ne lisent pas la mémoire octet par octet : ils la
-lisent en mots de 4 ou 8 octets alignés sur des adresses multiples de leur
-taille. Lire un `int` de 4 octets situé à une adresse non multiple de 4
-oblige le processeur à faire deux accès mémoire au lieu d'un — ou provoque
-carrément une erreur sur certaines architectures.
+lisent en mots alignés sur des adresses multiples de la taille d'un mot (ex : 8
+octets sur une architecture 64 bits). Sur une architecture 64 bits, les règles
+d'alignement sont les suivantes :
+
+| Type | Taille | Alignement requis |
+|---|---|---|
+| `char` | 1 octet | 1 |
+| `short` | 2 octets | 2 |
+| `int` | 4 octets | 4 |
+| `long`, `double`, pointeur | 8 octets | 8 |
+
+Un `double` placé à l'adresse 1 forcerait le processeur à effectuer deux
+lectures de 8 octets puis à reconstituer la valeur — ou provoquerait une
+erreur matérielle sur certaines architectures.
 
 Pour éviter cela, le compilateur insère automatiquement des octets vides
-(**padding**) entre les champs d'une struct de façon à garantir que chaque
-champ commence à une adresse correctement alignée.
+(**padding**) entre les champs d'une struct pour garantir que chaque champ
+commence à une adresse correctement alignée.
 
 ```c
+/* Sur 64 bits */
 struct Exemple {
-    char   initiale;  /* 1 octet */
-    /* 3 octets de padding ici ! */
-    int    age;       /* 4 octets, doit être aligné sur un multiple de 4 */
+    char   initiale;  /* 1 octet  @ adresse 0 */
+    /* 3 octets de padding interne */
+    int    age;       /* 4 octets @ adresse 4 (multiple de 4) */
 };
-/* sizeof(struct Exemple) == 8, pas 5 */
+/* sizeof == 8, pas 5 */
 ```
 
 ```
-[ initiale | pad | pad | pad | age (4 octets) ]
-  0          1     2     3     4
+[ initiale | pad | pad | pad |      age (4 octets)      ]
+  0           1     2     3     4     5     6     7
 ```
+
+#### Padding de fin
+
+Le compilateur ajoute aussi du padding *après le dernier champ* pour que
+`sizeof` soit un multiple de l'alignement du membre le plus grand. Ce
+**padding de fin** est indispensable pour que les tableaux de structs soient
+correctement alignés.
+
+```c
+struct AvecPaddingFin {
+    double a;  /* 8 octets @ 0 */
+    char   b;  /* 1 octet  @ 8 */
+    /* 7 octets de padding de fin — sizeof doit être un multiple de 8 */
+};
+/* sizeof == 16, pas 9 */
+```
+
+```
+[      a (8 octets)      | b | pad | pad | pad | pad | pad | pad | pad ]
+  0   1   2   3   4   5   6   7   8    9   10   11   12   13   14   15
+```
+
+Dans un tableau `struct AvecPaddingFin arr[2]`, `arr[1]` débute à l'adresse
+16 — multiple de 8 — et son champ `a` est correctement aligné. Sans ces 7
+octets de padding, `arr[1].a` serait à l'adresse 9, non alignée.
+
+#### Exemple : 32 octets vs 16 octets
+
+L'ordre des champs a un impact direct sur la taille totale. Avec les mêmes
+données, une mauvaise disposition peut doubler la taille de la struct :
+
+```c
+/* Mauvaise disposition — 32 octets */
+struct Mauvais {
+    char    c;   /*  1 octet  @ 0                          */
+    /* 7 octets de padding interne (aligner double sur 8)  */
+    double  a;   /*  8 octets @ 8                          */
+    char    d;   /*  1 octet  @ 16                         */
+    /* 3 octets de padding interne (aligner int sur 4)     */
+    int     b;   /*  4 octets @ 20                         */
+    char    e;   /*  1 octet  @ 24                         */
+    char    f;   /*  1 octet  @ 25                         */
+    /* 6 octets de padding de fin (arrondir à multiple de 8) */
+};
+/* sizeof == 32 — données utiles : 16 octets, gaspillage : 16 octets */
+```
+
+En regroupant les grands types en tête et les petits types en queue, les
+mêmes données tiennent en 16 octets sans aucun padding :
+
+```c
+/* Bonne disposition — 16 octets */
+struct Bon {
+    double  a;   /*  8 octets @ 0  */
+    int     b;   /*  4 octets @ 8  */
+    char    c;   /*  1 octet  @ 12 */
+    char    d;   /*  1 octet  @ 13 */
+    char    e;   /*  1 octet  @ 14 */
+    char    f;   /*  1 octet  @ 15 */
+    /* aucun padding — 16 est déjà un multiple de 8 */
+};
+/* sizeof == 16 */
+```
+
+Les données brutes sont identiques dans les deux cas : 8 + 4 + 1 + 1 + 1 + 1
+= 16 octets. La version `Mauvais` gaspille autant en padding qu'elle stocke de
+données réelles.
 
 Ce comportement surprend souvent les débutants. Utiliser `sizeof` pour
 connaître la taille réelle d'une struct est indispensable — ne supposez jamais
 que c'est la somme des tailles de ses champs.
 
-:::tip[Ordre des champs]
-Pour minimiser le padding (et donc la taille de la struct), déclarez les
-champs du plus grand au plus petit. Le compilateur place alors chaque champ
-directement après le précédent sans espacement, car les contraintes
-d'alignement sont automatiquement respectées :
-
-```c
-struct Optimisé {
-    int   age;       /* 4 octets, à l'adresse 0 */
-    char  initiale;  /* 1 octet,  à l'adresse 4 */
-    /* 3 octets de padding en fin */
-};
-```
-
-La taille est la même ici (8 octets), mais si on ajoutait un deuxième `char`,
-il se logerait à l'adresse 5 sans padding supplémentaire, alors que dans la
-version non optimisée il aurait nécessité 3 nouveaux octets de padding.
+:::tip[Règle pratique : du plus grand au plus petit]
+Déclarez les champs par ordre décroissant d'alignement. Les champs de grand
+alignement se placent naturellement tête à tête, et les petits types regroupés
+en fin ne génèrent au pire qu'un unique bloc de padding de fin, au lieu de
+multiples îlots de padding interne.
 :::
 
 ## Unions

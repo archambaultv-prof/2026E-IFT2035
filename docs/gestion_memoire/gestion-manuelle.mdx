@@ -236,3 +236,82 @@ valgrind --leak-check=full ./mon_programme
 `valgrind` est indispensable pour tout programme C qui utilise `malloc`. Il
 ralentit l'exécution, mais cela ne concerne que les
 sessions de débogage.
+
+## Structures de données dynamiques
+
+Les pointeurs et `malloc`/`free` permettent de construire des structures de
+données dont la taille et la forme évoluent à l'exécution. Voici l'exemple
+canonique : la liste chaînée.
+
+### Liste chaînée
+
+Une liste chaînée est composée de **nœuds** alloués dynamiquement, chacun
+contenant une valeur et un pointeur vers le nœud suivant. Le dernier nœud
+pointe vers `NULL`. Cette structure peut croître ou rétrécir à l'exécution
+sans réallocation.
+
+```c
+typedef struct Noeud Noeud;
+
+struct Noeud {
+    int    valeur;
+    Noeud* suivant;  /* pointeur vers le nœud suivant, NULL si dernier */
+};
+
+/* Créer un nœud */
+Noeud* creer_noeud(int val) {
+    Noeud* n = malloc(sizeof(Noeud));
+    if (!n) return NULL;   /* toujours vérifier malloc */
+    n->valeur  = val;
+    n->suivant = NULL;
+    return n;
+}
+
+/* Afficher une liste */
+void afficher(Noeud* liste) {
+    while (liste != NULL) {
+        printf("%d -> ", liste->valeur);
+        liste = liste->suivant;
+    }
+    printf("NULL\n");
+}
+
+/* Libérer une liste */
+void liberer(Noeud* liste) {
+    while (liste != NULL) {
+        Noeud* suivant = liste->suivant;  /* sauvegarder avant free ! */
+        free(liste);                      /* libère le nœud courant */
+        liste = suivant;
+    }
+}
+```
+
+La fonction `liberer` illustre un piège classique : il faut sauvegarder
+`liste->suivant` *avant* d'appeler `free(liste)`, car après la libération,
+lire `liste->suivant` serait un accès après libération (*use-after-free*).
+
+```c
+int main(void) {
+    Noeud* liste = creer_noeud(1);
+    liste->suivant = creer_noeud(2);
+    liste->suivant->suivant = creer_noeud(3);
+
+    afficher(liste);  /* 1 -> 2 -> 3 -> NULL */
+    liberer(liste);
+    return 0;
+}
+```
+
+:::info[Comparaison avec Haskell]
+```haskell
+-- Haskell : liste définie récursivement, gestion mémoire automatique
+data Liste = Nil | Cons Int Liste
+
+afficher :: Liste -> String
+afficher Nil         = "Nil"
+afficher (Cons x xs) = show x ++ " -> " ++ afficher xs
+```
+
+En Haskell, le garbage collector libère automatiquement les nœuds non
+référencés. En C, chaque `malloc` doit être suivi d'un `free`.
+:::

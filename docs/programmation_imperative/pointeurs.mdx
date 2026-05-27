@@ -142,6 +142,29 @@ Cette règle garantit que l'arithmétique de pointeurs est cohérente quel que
 soit le type : `p + 1` pointe toujours vers l'élément suivant, que ce soit un
 `char` (1 octet), un `int` (4 octets) ou un `double` (8 octets).
 
+La même règle s'applique aux structures. Si une `struct` fait 24 octets,
+`p + 1` avance de 24 octets en mémoire — pas de 8 :
+
+```c
+typedef struct {
+    double x;   /* 8 octets */
+    double y;   /* 8 octets */
+    double z;   /* 8 octets */
+} Vec3;         /* sizeof(Vec3) == 24 octets */
+
+Vec3 tableau[3] = {{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
+Vec3* p = tableau;   /* p pointe sur tableau[0], adresse supposée 1000 */
+
+/* p + 1  →  adresse 1000 + 1 × 24 = 1024  (tableau[1]) */
+/* p + 2  →  adresse 1000 + 2 × 24 = 1048  (tableau[2]) */
+
+printf("%.1f\n", (p + 1)->x);  /* 4.0 — champ x de tableau[1] */
+printf("%.1f\n", (p + 2)->z);  /* 9.0 — champ z de tableau[2] */
+```
+
+Le compilateur connaît `sizeof(Vec3)` et multiplie automatiquement : aucun
+calcul manuel d'offset n'est nécessaire.
+
 ### Tableaux et pointeurs
 
 En C, le nom d'un tableau est **implicitement converti** en pointeur vers son
@@ -188,13 +211,30 @@ int* fin   = t + 5;
 ptrdiff_t taille = fin - debut;  /* 5 */
 ```
 
+:::info[`ptrdiff_t`]
+`ptrdiff_t` est un type entier **signé** défini dans `<stddef.h>`. Il est
+conçu pour stocker le résultat d'une soustraction de deux pointeurs.
+
+Pourquoi ne pas utiliser `int` directement ? Parce que la taille d'un pointeur
+dépend de la plateforme : sur un système 64 bits, un pointeur fait 8 octets et
+la différence entre deux pointeurs peut dépasser la capacité d'un `int` (32
+bits). `ptrdiff_t` est garanti assez grand pour représenter n'importe quelle
+différence valide, quelle que soit l'architecture — c'est `long` sur la
+plupart des systèmes 64 bits.
+
+Par symétrie, `size_t` (type non signé) est utilisé pour les *tailles* (résultat
+de `sizeof`, indices de tableaux, paramètres de `malloc`), tandis que
+`ptrdiff_t` (type signé) est utilisé pour les *différences* entre pointeurs,
+qui peuvent être négatives.
+:::
+
 ## Chaînes de caractères en C
 
 C n'a pas de type « chaîne de caractères » natif. Une chaîne est simplement
 un **tableau de `char` terminé par le caractère nul `'\0'`** (octet de valeur
 0). C'est le `'\0'` final qui marque la fin de la chaîne — toutes les
 fonctions de la bibliothèque standard (`printf`, `strlen`, `strcpy`…)
-parent de l'adresse du premier caractère et avancent jusqu'à trouver ce
+partent de l'adresse du premier caractère et avancent jusqu'à trouver cette
 sentinelle.
 
 ```c
@@ -233,82 +273,10 @@ char   s2[] = "Bonjour";  /* copie dans un tableau sur la pile — modifiable */
 ## Structures de données avec pointeurs
 
 Les pointeurs sont la clé pour construire des structures de données dont la
-taille et la forme évoluent à l'exécution. En Haskell, ce genre de structure
-existe naturellement grâce à l'évaluation paresseuse et au garbage collector.
-En C, on la construit manuellement avec `malloc` et des pointeurs.
-
-### Liste chaînée
-
-Une liste chaînée est composée de **nœuds** alloués dynamiquement, chacun
-contenant une valeur et un pointeur vers le nœud suivant. Le dernier nœud
-pointe vers `NULL`. Cette structure peut croître ou rétrécir à l'exécution
-sans réallocation.
-
-```c
-typedef struct Noeud Noeud;
-
-struct Noeud {
-    int    valeur;
-    Noeud* suivant;  /* pointeur vers le nœud suivant, NULL si dernier */
-};
-
-/* Créer un nœud */
-Noeud* creer_noeud(int val) {
-    Noeud* n = malloc(sizeof(Noeud));
-    if (!n) return NULL;   /* toujours vérifier malloc */
-    n->valeur  = val;
-    n->suivant = NULL;
-    return n;
-}
-
-/* Afficher une liste */
-void afficher(Noeud* liste) {
-    while (liste != NULL) {
-        printf("%d -> ", liste->valeur);
-        liste = liste->suivant;  /* avance vers le nœud suivant */
-    }
-    printf("NULL\n");
-}
-
-/* Libérer une liste */
-void liberer(Noeud* liste) {
-    while (liste != NULL) {
-        Noeud* suivant = liste->suivant;  /* sauvegarder avant free ! */
-        free(liste);                      /* libère le nœud courant */
-        liste = suivant;                  /* passe au suivant */
-    }
-}
-```
-
-La fonction `liberer` illustre un piège classique : il faut sauvegarder
-`liste->suivant` *avant* d'appeler `free(liste)`, car après la libération,
-lire `liste->suivant` serait un accès après libération (*use-after-free*).
-
-```c
-int main(void) {
-    Noeud* liste = creer_noeud(1);
-    liste->suivant = creer_noeud(2);
-    liste->suivant->suivant = creer_noeud(3);
-
-    afficher(liste);  /* 1 -> 2 -> 3 -> NULL */
-    liberer(liste);
-    return 0;
-}
-```
-
-:::info[Comparaison avec Haskell]
-```haskell
--- Haskell : liste définie récursivement, gestion mémoire automatique
-data Liste = Nil | Cons Int Liste
-
-afficher :: Liste -> String
-afficher Nil         = "Nil"
-afficher (Cons x xs) = show x ++ " -> " ++ afficher xs
-```
-
-En Haskell, le garbage collector libère automatiquement les nœuds non
-référencés. En C, chaque `malloc` doit être suivi d'un `free`.
-:::
+taille et la forme évoluent à l'exécution — listes chaînées, arbres, graphes,
+etc. Ces structures reposent sur `malloc` et `free`, qui sont présentés dans
+la section [Gestion mémoire manuelle](/docs/gestion_memoire/gestion-manuelle).
+Un exemple complet de liste chaînée s'y trouve également.
 
 ## Pointeurs vers des fonctions
 
@@ -373,3 +341,83 @@ printf("%d\n", op(3, 4));  /* 7 */
 Avec ce `typedef`, on peut déclarer des tableaux de fonctions, des paramètres
 de fonctions et des champs de structures de façon beaucoup plus lisible.
 :::
+
+### Absence de fermetures
+
+En Haskell, une fonction peut capturer une variable de son environnement
+lexical et être retournée comme valeur — c'est une **fermeture** (*closure*).
+En C standard, ce mécanisme n'existe pas :
+
+- Toutes les fonctions sont définies au niveau du fichier (portée globale). Il
+  n'existe pas de fonctions locales en C standard.
+- Un pointeur de fonction ne contient que l'adresse du code. Il ne transporte
+  aucun état capturé.
+
+```haskell
+-- Haskell : adder retourne une fermeture qui capture n
+adder :: Int -> (Int -> Int)
+adder n = \x -> x + n
+
+add10 = adder 10
+add10 5   -- 15
+```
+
+L'équivalent direct est **impossible** en C standard — un pointeur de fonction
+seul ne peut pas mémoriser `n`. La solution est de représenter explicitement
+une fermeture comme une **paire (pointeur de fonction, contexte)** :
+
+```c
+/* 1. Une fermeture générique = pointeur de fonction + pointeur vers l'état */
+typedef struct {
+    int (*fn)(int, void*);  /* le code */
+    void* ctx;              /* l'état capturé */
+} Fermeture;
+
+/* 2. L'état capturé — ici la valeur de n */
+typedef struct {
+    int n;
+} ContexteAdder;
+
+/* 3. La fonction brute doit avoir la signature int(int, void*).
+      C'est pourquoi ctx est void* et non ContexteAdder* */
+int adder_fn(int x, void* ctx) {
+    ContexteAdder* c = (ContexteAdder*)ctx;
+    return x + c->n;
+}
+
+/* 4. fabriquer_adder joue le rôle de adder :: Int -> (Int -> Int) */
+Fermeture fabriquer_adder(int n) {
+    ContexteAdder* ctx = malloc(sizeof(ContexteAdder));
+    ctx->n = n;                              /* capture n sur le tas */
+    return (Fermeture){ adder_fn, ctx };
+}
+
+/* 5. Appeler la fermeture avec un seul argument, comme en Haskell */
+int appeler(Fermeture f, int x) {
+    return f.fn(x, f.ctx);
+}
+
+/* Utilisation */
+Fermeture add10 = fabriquer_adder(10);
+printf("%d\n", appeler(add10, 5));   /* 15 */
+printf("%d\n", appeler(add10, 20));  /* 30 */
+```
+
+Le type `void*` dans `Fermeture.ctx` est essentiel : il permet à la struct
+`Fermeture` d'être **générique**, c'est-à-dire de transporter n'importe quel
+contexte (un `ContexteAdder`, ou demain un `ContexteMultiplieur`, etc.) sans
+changer la définition de `Fermeture`. C'est l'équivalent de l'effacement de
+type (*type erasure*) : on perd l'information de type à la compilation, et on
+la récupère manuellement avec le cast `(ContexteAdder*)ctx` à l'intérieur de
+la fonction.
+
+:::caution[Durée de vie du contexte]
+Le contexte est alloué avec `malloc` (et non sur la pile), car il doit
+survivre au retour de `fabriquer_adder`. Une variable locale disparaîtrait
+à ce moment, laissant `ctx` pointer sur de la mémoire invalide. Il faut
+donc libérer le contexte manuellement quand la fermeture n'est plus utilisée.
+:::
+
+En Haskell, tout cela est transparent : le compilateur alloue automatiquement
+le contexte sur le tas et le garbage collector le libère. En C, chaque étape
+est explicite — c'est plus de travail, mais aussi plus de contrôle.
