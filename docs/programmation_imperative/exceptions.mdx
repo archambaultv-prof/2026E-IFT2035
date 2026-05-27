@@ -18,8 +18,8 @@ les gérer.
 Doit-on arrêter immédiatement le programme ? Retourner une valeur spéciale ?
 Laisser le code appelant décider ? Forcer la gestion via le système de types ?
 
-Trois langages, trois réponses radicalement différentes pour le même problème
-de fond.
+Nous allons voir trois langages avec trois réponses radicalement différentes
+pour le même problème de fond.
 
 ---
 
@@ -48,42 +48,6 @@ except ValueError as e:
     print(f"Erreur : {e}")          # "Erreur : Division par zéro interdite"
 finally:
     print("Nettoyage (toujours exécuté)")
-```
-
-### La hiérarchie des exceptions Python
-
-```
-BaseException
-├── SystemExit          (sys.exit())
-├── KeyboardInterrupt   (Ctrl+C)
-└── Exception           (toutes les erreurs "normales")
-    ├── ValueError      (mauvaise valeur)
-    ├── TypeError       (mauvais type)
-    ├── FileNotFoundError
-    ├── ZeroDivisionError
-    ├── IndexError
-    └── ...
-```
-
-On peut créer ses propres exceptions :
-
-```python
-class SoldeInsuffisant(Exception):
-    def __init__(self, manque):
-        super().__init__(f"Solde insuffisant — manque {manque}€")
-        self.manque = manque
-
-def retirer(compte, montant):
-    if montant > compte["solde"]:
-        raise SoldeInsuffisant(montant - compte["solde"])
-    compte["solde"] -= montant
-
-try:
-    compte = {"solde": 100}
-    retirer(compte, 150)
-except SoldeInsuffisant as e:
-    print(e)          # "Solde insuffisant — manque 50€"
-    print(e.manque)   # 50
 ```
 
 ### Ce que font les exceptions sous le capot
@@ -197,8 +161,8 @@ La bibliothèque standard C utilise cette convention partout :
 ### `errno` : plus d'information sur l'erreur
 
 Retourner `-1` ne dit pas *pourquoi* ça a échoué. La bibliothèque standard
-utilise la variable globale `errno` (définie dans `<errno.h>`) pour fournir
-un code d'erreur détaillé.
+utilise la variable `errno` (définie dans `<errno.h>`) pour fournir un code
+d'erreur détaillé.
 
 ```c
 #include <stdio.h>
@@ -209,10 +173,24 @@ FILE* f = fopen("inexistant.txt", "r");
 if (f == NULL) {
     /* errno contient le code d'erreur de l'OS */
     printf("Erreur %d : %s\n", errno, strerror(errno));
-    /* → "Erreur 2 : No such file or directory" */
-    perror("fopen");   /* raccourci : affiche "fopen: No such file or directory" */
 }
 ```
+
+:::info[D'où vient `errno` ?]
+**Origine de la variable.** Historiquement, `errno` était une simple variable
+globale `int`. Problème : dans un programme multi-thread, deux threads
+pourraient écraser mutuellement cette valeur. Depuis C11 et POSIX, `errno`
+est en pratique une **macro** qui se développe en un accès à une variable
+locale au thread (*thread-local*). L'en-tête `<errno.h>` fournit cette macro ;
+inclure cet en-tête est obligatoire pour l'utiliser correctement.
+
+**D'où viennent les numéros ?** Les codes d'erreur sont définis par la norme
+**POSIX** sous forme de constantes symboliques commençant
+par `E`. POSIX garantit les **noms** (toujours `ENOENT`, `EACCES`, etc.), mais pas les
+**valeurs numériques** — celles-ci varient d'un OS à l'autre. Il ne faut donc
+jamais écrire `if (errno == 2)` en supposant que 2 signifie « fichier
+introuvable » : il faut écrire `if (errno == ENOENT)` pour rester portable.
+:::
 
 :::caution[Limite des codes de retour]
 Les codes de retour ont deux problèmes majeurs :
@@ -273,7 +251,7 @@ basé sur la sauvegarde et la restauration du contexte d'exécution du processeu
 jmp_buf point_de_retour;   /* sauvegarde l'état de la pile */
 
 void h(void) {
-    printf("h : erreur détectée\n");
+    printf("h : erreur detectee\n");
     longjmp(point_de_retour, 1);  /* saut non-local ! */
     printf("jamais atteint\n");
 }
@@ -289,7 +267,7 @@ int main(void) {
         printf("jamais atteint\n");
     } else {
         /* retour depuis longjmp : setjmp retourne 1 */
-        printf("main : exception attrapée\n");
+        printf("main : exception attrapee\n");
     }
     return 0;
 }
@@ -297,8 +275,8 @@ int main(void) {
 
 ```
 main : appel de f()
-h : erreur détectée
-main : exception attrapée
+h : erreur detectee
+main : exception attrapee
 ```
 
 `setjmp` sauvegarde le **contexte d'exécution** dans `jmp_buf` : le pointeur
