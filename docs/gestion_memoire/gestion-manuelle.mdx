@@ -1,0 +1,238 @@
+---
+sidebar_position: 3
+sidebar_label: Gestion manuelle
+description: Gestion mémoire manuelle en C — malloc, free, états des pointeurs et erreurs classiques.
+---
+
+# Gestion mémoire manuelle
+
+## États d'un pointeur
+
+Avant de parler d'allocation et de libération, il est utile de classifier les
+états dans lesquels un pointeur peut se trouver à un instant donné.
+
+| État | Description |
+|---|---|
+| **Normal** | Le pointeur désigne un objet existant et encore nécessaire — c'est l'état attendu. |
+| **`NULL`** | Valeur spéciale (0) qui signifie « ne pointe sur rien ». Utilisée pour indiquer l'absence d'objet. |
+| **Fou** (*dangling*) | L'objet pointé a été libéré ou est sorti de portée — le pointeur est invalide. |
+| **Fuite** (*leak*) | L'objet pointé existe encore en mémoire mais plus aucun pointeur normal ne le référence — il est inaccessible et ne peut plus être libéré. |
+
+Les pointeurs **fous** et les **fuites** sont les deux problèmes fondamentaux
+de la gestion mémoire manuelle.
+
+### Pointeur `NULL`
+
+`NULL` est utilisé dans deux situations typiques :
+
+```c
+/* 1. Pointeur déclaré mais pas encore prêt */
+int* p = NULL;
+
+/* 2. Valeur de retour d'une fonction qui signale un échec */
+int* tableau = malloc(n * sizeof(int));
+if (tableau == NULL) {
+    fprintf(stderr, "Allocation échouée\n");
+    return -1;
+}
+```
+
+Déréférencer `NULL` provoque une **segmentation fault** immédiate — ce qui est
+préférable à une corruption silencieuse.
+
+### Pointeur fou (*dangling pointer*)
+
+Un pointeur devient *fou* lorsque l'objet qu'il désignait est libéré, mais que
+le pointeur continue d'exister avec l'ancienne adresse.
+
+```c
+int* ptrA = malloc(sizeof(int));
+if (ptrA == NULL) return 1;
+
+free(ptrA);              /* ptrA est maintenant fou */
+int* ptrB = malloc(sizeof(int));
+if (ptrB == NULL) return 1;
+
+*ptrB = 3;
+*ptrA = 5;               /* écrase potentiellement ptrB — comportement indéfini ! */
+printf("%d\n", *ptrB);  /* peut afficher 5 au lieu de 3 */
+```
+
+Le danger vient du fait que la zone libérée peut être réallouée immédiatement
+par un autre `malloc`. Écrire via un pointeur fou corrompt alors un autre objet
+vivant, de façon potentiellement silencieuse et difficile à diagnostiquer.
+
+### Fuite mémoire (*memory leak*)
+
+Une fuite survient lorsqu'un bloc alloué n'est jamais libéré, parce que tous
+les pointeurs qui le désignaient ont disparu ou ont été réassignés.
+
+```c
+void fonction(void) {
+    int* p = malloc(100 * sizeof(int));
+    /* … traitement … */
+    /* OUBLI : free(p) manquant */
+}   /* p est dépilé, mais le bloc sur le tas reste alloué pour toujours */
+```
+
+Une fuite mémoire dans un programme de courte durée est souvent anodine
+(le système d'exploitation récupère toute la mémoire à la fin du processus).
+Dans un serveur ou un démon qui tourne en continu, les fuites s'accumulent
+jusqu'à épuiser la mémoire disponible.
+
+## `malloc` — allouer de la mémoire
+
+`malloc` (*memory allocate*), déclaré dans `<stdlib.h>`, prend en argument le
+nombre d'octets à allouer et retourne un pointeur vers le premier octet du bloc
+alloué. Il retourne `NULL` si l'allocation échoue.
+
+```c
+#include <stdlib.h>
+
+int* tableau = malloc(n * sizeof(int));
+```
+
+La convention `n * sizeof(T)` garantit que le calcul de taille est portable :
+`sizeof(int)` vaut 4 sur la plupart des architectures 32-bit/64-bit, mais
+cette valeur est garantie par le compilateur, pas par vous. Ne codez jamais la
+taille en dur (`malloc(n * 4)` est fragile).
+
+`malloc` retourne un `void*` que C convertit implicitement vers le type
+attendu. Le bloc alloué n'est **pas initialisé** — son contenu est indéfini.
+Pour obtenir un bloc mis à zéro, utilisez `calloc(n, sizeof(T))`.
+
+```c
+int n = 10;
+int* t = malloc(n * sizeof(int));
+
+if (t == NULL) {
+    fprintf(stderr, "Erreur d'allocation\n");
+    exit(1);
+}
+
+for (int i = 0; i < n; i++) {
+    t[i] = i * i;   /* on utilise t exactement comme un tableau ordinaire */
+}
+/* t[0]=0, t[1]=1, t[2]=4, t[3]=9, … */
+```
+
+### Implémentation interne
+
+`malloc` n'est pas une primitive magique du système d'exploitation : c'est
+une **fonction écrite en C** qui gère une *free list* — une liste interne des
+zones de mémoire disponibles. Elle appelle des primitives de l'OS (comme
+`mmap`) pour obtenir de grandes plages de mémoire, qu'elle subdivise ensuite
+à la demande.
+
+Pour pouvoir savoir combien d'octets libérer lors d'un appel à `free(p)`,
+`malloc` stocke généralement la taille du bloc **juste avant** les octets
+retournés à l'utilisateur.
+
+```
+[taille][  données utilisateur  ][taille suivante][…]
+         ↑
+         p pointe ici
+```
+
+## `free` — libérer de la mémoire
+
+`free` rend au système le bloc précédemment alloué. Sans `free`, la mémoire
+reste réservée pour toute la durée du processus.
+
+```c
+free(t);    /* libère le bloc */
+t = NULL;   /* neutralise le pointeur — bonne pratique défensive */
+```
+
+Assigner `NULL` après `free` transforme tout accès ultérieur accidentel en
+segfault détectable, plutôt qu'en corruption silencieuse.
+
+`free(NULL)` est défini comme étant sans effet — il est donc toujours sûr
+d'appeler `free` sur un pointeur potentiellement `NULL`.
+
+**Règle d'or :** chaque `malloc` doit être suivi d'exactement un `free`.
+
+## Erreurs classiques
+
+| Erreur | Symptôme | Conséquence |
+|---|---|---|
+| **Oublier `free`** | Aucun symptôme immédiat | Fuite mémoire : consommation croissante jusqu'à épuisement |
+| **Double `free`** | Crash ou comportement erratique | Corruption du gestionnaire de tas — faille de sécurité exploitable |
+| **Use-after-free** | Valeurs aléatoires, crash différé | La zone peut avoir été réallouée à un autre objet |
+| **Déréférencer `NULL`** | Segfault immédiat | Crash propre — au moins l'erreur est visible |
+| **Ne pas vérifier `NULL`** | Segfault ou calculs faux | Si le système manque de mémoire, `malloc` retourne `NULL` |
+
+
+
+## Désallocation et bibliothèques
+
+La gestion manuelle pose des questions de **conventions** dès qu'on utilise des
+bibliothèques. Prenons l'exemple d'une table de hachage :
+
+- Quand on retire une valeur (`hash_remove`), faut-il désallouer la valeur
+  retirée, ou la renvoyer à l'appelant ?
+- Quand on libère la table (`hash_free_table`), faut-il aussi libérer les
+  valeurs stockées ?
+- Quand on copie la table, que fait-on des valeurs ?
+
+Il n'existe pas de réponse universellement idéale. Chaque bibliothèque choisit
+ses conventions, et le programmeur doit les suivre à la lettre — une source
+fréquente d'erreurs subtiles.
+
+### Discipline par propriété (*ownership*)
+
+Une approche pour raisonner clairement sur la désallocation est de désigner,
+pour chaque objet alloué, **un unique pointeur propriétaire** (*owner*). La
+règle est simple :
+
+1. Un seul pointeur est désigné propriétaire de chaque objet.
+2. L'objet est désalloué lorsque son propriétaire disparaît ou change.
+3. Un pointeur n'est valide que si son propriétaire est encore vivant.
+
+```c
+/* Fonction qui crée un nœud — l'appelant en devient propriétaire */
+Noeud* creer_noeud(int val) {
+    Noeud* n = malloc(sizeof(Noeud));
+    if (!n) return NULL;
+    n->valeur  = val;
+    n->suivant = NULL;
+    return n;   /* transfert de propriété à l'appelant */
+}
+
+/* Fonction qui libère — l'appelant cède la propriété */
+void liberer_liste(Noeud* liste) {
+    while (liste != NULL) {
+        Noeud* suivant = liste->suivant;
+        free(liste);
+        liste = suivant;
+    }
+}
+```
+
+Lorsque l'invariant de propriété ne peut pas être préservé simplement, on
+peut recourir à :
+
+- **Des copies** — chaque copie a son propre propriétaire.
+- **Un compteur de références** — compte le nombre de propriétaires partagés.
+- **Un pointeur dédié** — un pointeur dont le seul rôle est d'être propriétaire
+  (les autres sont des références non-propriétaires).
+
+La propriété peut changer au cours du temps : un objet peut être *transféré*
+d'une structure à une autre.
+
+## Valgrind — détecter les erreurs
+
+`valgrind` est un outil qui exécute un programme dans un environnement
+instrumenté et rapporte automatiquement :
+
+- Les fuites mémoire (blocs alloués jamais libérés).
+- Les doubles libérations.
+- Les accès à de la mémoire invalide ou non initialisée.
+
+```bash
+valgrind --leak-check=full ./mon_programme
+```
+
+`valgrind` est indispensable pour tout programme C qui utilise `malloc`. Il
+ralentit l'exécution, mais cela ne concerne que les
+sessions de débogage.

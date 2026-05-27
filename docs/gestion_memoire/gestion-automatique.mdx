@@ -1,0 +1,333 @@
+---
+sidebar_position: 4
+sidebar_label: Gestion automatique
+description: Gestion mémoire automatique — comptage de références, Mark & Sweep et Stop & Copy.
+---
+
+# Gestion mémoire automatique
+
+La gestion manuelle est puissante mais dangereuse. La gestion **automatique**
+décharge complètement le programmeur de la responsabilité de libérer la
+mémoire : un composant du langage — appelé **ramasse-miettes** (*garbage
+collector*, GC) — détecte les objets devenus inaccessibles et les récupère.
+
+L'idée clé est la notion d'**accessibilité** : un objet est *vivant* s'il
+est possible d'y accéder depuis les **racines** du programme (variables
+globales et variables actuellement sur la pile). Tout objet inaccessible peut
+être désalloué sans danger.
+
+:::info[GC dans les langages courants]
+Java, Python, Go, Haskell, JavaScript, Ruby, C# — tous utilisent un GC. C et
+C++ sont les principales exceptions parmi les langages populaires (Rust utilise
+une approche différente, présentée dans la section suivante).
+:::
+
+## Comptage de références
+
+Le **comptage de références** (*reference counting*) est l'approche la plus
+intuitive. Chaque objet maintient un champ `refcnt` qui compte le nombre de
+pointeurs qui pointent vers lui.
+
+- Quand un pointeur est **copié** (une nouvelle référence vers l'objet est
+  créée), `refcnt` est **incrémenté**.
+- Quand un pointeur est **détruit** (la variable qui le contenait sort de
+  portée ou est réassignée), `refcnt` est **décrémenté**.
+- Quand `refcnt` atteint **0**, l'objet n'est plus référencé : on décrémente
+  récursivement les compteurs des objets qu'il pointait, puis on libère l'objet.
+
+```c
+/* Illustration conceptuelle en C — le vrai comptage de références
+   est géré automatiquement par le runtime du langage */
+
+int* make_int(void) {
+    int* n = malloc(sizeof(int));
+    refcnt++;          /* incrémentation à la création */
+    return n;
+}
+
+void copy_ref(int* old, int** new) {
+    *new = old;
+    refcnt++;          /* incrémentation à la copie */
+}
+
+void free_ref(int* p) {
+    refcnt--;
+    if (refcnt == 0) { free(p); }
+}
+```
+
+### Avantages
+
+- **Simple à implémenter** — la logique est locale à chaque opération sur les
+  pointeurs.
+- **Récupération prompte** — un objet est libéré dès qu'il devient
+  inaccessible, sans attendre une phase de GC.
+- **Pauses très courtes** — la libération est distribuée dans le temps.
+
+### Limites
+
+- **Coût de chaque opération** — chaque copie ou destruction de pointeur
+  entraîne une lecture-écriture en mémoire pour mettre à jour le compteur,
+  ce qui ralentit le programme.
+- **Synchronisation en contexte concurrent** — les incréments et décréments
+  doivent être atomiques pour éviter les conditions de course (*race
+  conditions*).
+- **Incapable de récupérer les cycles** — si deux objets se pointent
+  mutuellement mais ne sont plus accessibles depuis les racines, leurs
+  compteurs ne tomberont jamais à 0.
+
+```
+   A → B
+   B → A   (cycle inaccessible : refcnt(A) = 1, refcnt(B) = 1 — jamais libérés)
+```
+
+Python utilise le comptage de références comme mécanisme principal, et ajoute
+un GC secondaire spécifiquement pour détecter les cycles.
+
+## Garbage Collector : idée générale
+
+Les algorithmes de GC proprement dits raisonnent sur l'**accessibilité globale**
+plutôt que sur des compteurs locaux. Ils partent des **racines** (variables
+globales + pile) et traversent toutes les structures de données pour identifier
+les objets *atteignables*. Les objets non atteints sont désalloués.
+
+```
+Racines : x, y, z (variables globales et sur la pile)
+
+     x ──→ a ──→ e ──→ k
+     y ──→ c ──→ i
+     z ──→ (rien de nouveau)
+
+     b, d, f, g, h, j, l  ←— inaccessibles depuis les racines → désalloués
+```
+
+Les deux grands algorithmes classiques sont **Mark & Sweep** et
+**Stop & Copy**.
+
+## Mark & Sweep
+
+Mark & Sweep est l'algorithme de GC le plus ancien (McCarthy, 1960, pour Lisp).
+Il fonctionne en deux phases.
+
+### Phase 1 — Marquer (Mark)
+
+On attribue à chaque objet un bit de marquage (`markbit`). Au départ, tous les
+objets sont marqués *inaccessible*. Puis on **parcourt récursivement** tous les
+objets atteignables depuis les racines en les marquant *accessible*.
+
+```
+mark(ptr):
+  si ptr n'est pas déjà marqué:
+    marquer ptr comme accessible
+    pour chaque champ de ptr qui est un pointeur:
+      mark(champ)
+
+mark_all():
+  pour chaque racine r:
+    mark(r)
+```
+
+### Phase 2 — Balayer (Sweep)
+
+On parcourt *tout* le tas linéairement. Chaque objet encore marqué
+*inaccessible* est libéré. Les objets marqués *accessible* voient leur bit
+remis à zéro en prévision du prochain cycle.
+
+```
+sweep_all():
+  ptr = début du tas
+  répéter:
+    si ptr est marqué accessible:
+      remettre le bit à zéro
+    sinon:
+      libérer(ptr)
+  jusqu'à fin du tas
+```
+
+### Illustration
+
+```
+État initial — tous les objets dans le tas :
+Tas :  a  b  c  d  e  f  g  h  i  j  k  l
+Pile : x  y  z
+
+Après Mark — objets atteignables marqués (✓) :
+Tas :  a✓ b  c✓ d  e✓ f  g  h  i✓ j  k✓ l
+       (b, d, f, g, h, j, l sont inaccessibles)
+
+Après Sweep — objets non marqués libérés :
+Tas :  a  c  e  i  k
+       (les trous sont réintégrés dans la free list)
+```
+
+### Avantages et limites
+
+**Avantages :** récupère les cycles, relativement simple à implémenter.
+
+**Limites :**
+
+- **Fragmentation** — les blocs libérés créent des trous dispersés dans le
+  tas. Les allocations futures trouvent difficilement de grands blocs contigus.
+- **Stop-the-world** — le programme principal doit être *suspendu* pendant
+  toute la phase de GC, car les objets ne doivent pas être modifiés pendant
+  le parcours. Cela introduit des **pauses** imprévisibles.
+
+## Stop & Copy
+
+Stop & Copy résout le problème de fragmentation en déplaçant les objets
+vivants. Le tas est divisé en deux moitiés égales : l'espace actuel (*From*)
+et l'espace de destination (*To*).
+
+### Principe
+
+1. **Arrêter** le programme.
+2. **Copier** tous les objets accessibles de *From* vers *To*, en les
+   plaçant **compactés** et consécutifs.
+3. **Mettre à jour** tous les pointeurs qui désignaient les anciens
+   emplacements pour qu'ils pointent vers les nouveaux (via des *forwarding
+   pointers* placés dans les anciens emplacements).
+4. **Libérer** *From* d'un seul coup — toute la moitié devient disponible.
+5. **Échanger** les rôles de *From* et *To*.
+
+```
+copy(ptr):
+  si ptr n'a pas encore de forwarding pointer:
+    copier les octets de ptr vers alloc_ptr
+    ptr->forward = alloc_ptr  (forwarding pointer)
+    avancer alloc_ptr
+  retourner ptr->forward
+
+stop_and_copy():
+  alloc_ptr = scan_ptr = début de To
+  pour chaque racine r:
+    r = copy(r)
+  tant que scan_ptr < alloc_ptr:
+    pour chaque pointeur p dans *scan_ptr:
+      p = copy(p)
+    avancer scan_ptr
+  libérer From d'un seul coup
+```
+
+### Illustration pas-à-pas
+
+```
+État initial (tas From) :
+a  b  c  d  e  f  g  h  i  j  k  l
+Racines : x→a, y→c, z→(rien de nouveau)
+
+Étape 1 — copier a (accessible depuis x) :
+To :  a
+Forwarding pointer : From[a] → To[a]
+
+Étape 2 — a pointait vers e, copier e :
+To :  a  e
+
+Étape 3 — e pointait vers k, copier k :
+To :  a  e  k
+
+Étape 4 — copier c (accessible depuis y) :
+To :  a  e  k  c
+
+Étape 5 — c pointait vers i, copier i :
+To :  a  e  k  c  i
+
+Fin — libérer From d'un seul coup, To devient le nouveau tas :
+Tas :  a  e  k  c  i   (compacté, sans fragmentation)
+b, d, f, g, h, j, l → libérés
+```
+
+### Avantages et limites
+
+**Avantages :**
+
+- **Pas de fragmentation** — les objets vivants sont compactés à chaque cycle.
+- **Allocation ultra-rapide** — allouer un objet revient à incrémenter un
+  simple pointeur (`alloc_ptr += taille`).
+- **Libération en bloc** — libérer *From* est une seule opération.
+
+**Limites :**
+
+- **Utilise deux fois plus de mémoire** — la moitié du tas est toujours
+  réservée à *To*.
+- **Stop-the-world** — comme Mark & Sweep, le programme est suspendu pendant
+  la copie.
+- **Coût proportionnel aux objets vivants** — même si peu d'objets meurent,
+  tous les survivants sont copiés.
+
+## Besoins des algorithmes de GC
+
+Pour fonctionner, un GC a besoin d'informations que le compilateur doit
+fournir :
+
+| Information | Utilité |
+|---|---|
+| Taille de chaque objet | Pour copier ou balayer le tas linéairement |
+| Quels champs sont des pointeurs | Pour suivre le graphe d'accessibilité |
+| Liste de toutes les racines | Point de départ du parcours |
+| Accès au tas entier | Pour balayer (M&S) ou copier (S&C) |
+
+En C, le compilateur ne fournit pas ces informations au GC — c'est l'une des
+raisons pour lesquelles C n'a pas de GC standard.
+
+## Stop-the-world et variantes
+
+Les algorithmes de base (Mark & Sweep, Stop & Copy) sont dits
+**stop-the-world** : le **mutateur** (le programme principal qui fait le
+travail utile) doit être totalement arrêté pendant que le **collecteur**
+(le GC) s'exécute. Cela provoque des **pauses** dont la durée est
+proportionnelle à la taille du tas.
+
+Pour réduire ces pauses, les implémentations modernes de GC combinent
+plusieurs techniques :
+
+| Variante | Description |
+|---|---|
+| **Incrémental** | La collecte est découpée en petites tranches intercalées avec le mutateur |
+| **Concurrent** | Mutateur et collecteur s'exécutent simultanément (sur des threads différents) |
+| **Parallèle** | Plusieurs threads coopèrent pour accélérer la collecte |
+| **Générationnel** | Le tas est divisé par âge des objets ; les objets récents (qui meurent vite) sont collectés plus fréquemment |
+| **Partitionné** | Le tas est divisé en sous-tas collectés indépendamment |
+
+:::info[Hypothèse générationnelle]
+L'observation empirique que les **objets récemment alloués meurent jeunes** est
+appelée l'*hypothèse générationnelle*. Les GC générationnels exploitent cette
+propriété : la **jeune génération** est collectée très fréquemment et
+rapidement (peu d'objets survivent), tandis que la **vieille génération** est
+collectée moins souvent.
+
+La plupart des GC des JVM (Java, Kotlin, Scala) et du runtime .NET utilisent
+une approche générationnelle.
+:::
+
+## Finalisation et pointeurs faibles
+
+Les systèmes avec GC offrent souvent deux mécanismes complémentaires pour
+interagir avec le cycle de vie des objets.
+
+### Finalisation
+
+La **finalisation** permet d'associer à un objet une fonction à exécuter
+*avant* sa désallocation. Cela sert à libérer des ressources qui ne sont pas
+de la mémoire : fichiers ouverts, connexions réseau, verrous.
+
+```haskell
+-- Haskell : addFinalizer associe une action à un objet
+addFinalizer monObjet (putStrLn "Objet libéré !")
+```
+
+:::caution[Garanties limitées]
+La finalisation n'a pas lieu forcément *immédiatement* après que l'objet
+devient inaccessible — cela dépend du moment où le GC décide de collecter.
+Elle peut même ne jamais avoir lieu (si le programme se termine avant le
+prochain cycle de GC). Il ne faut pas s'y fier pour des ressources critiques.
+:::
+
+### Pointeurs faibles
+
+Un **pointeur faible** (*weak pointer*) est un pointeur qui *n'empêche pas* le
+GC de désallouer l'objet pointé. Avant d'utiliser un pointeur faible, on doit
+toujours vérifier si l'objet est encore vivant.
+
+Ils sont typiquement utilisés dans les **caches** : on garde une référence
+faible vers un objet en cache, mais si la mémoire vient à manquer, le GC peut
+le libérer librement. Au prochain accès, on recalcule simplement la valeur.

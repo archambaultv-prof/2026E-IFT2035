@@ -1,12 +1,88 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
+sidebar_label: Introduction
+description: Vue d'ensemble de la gestion de la mémoire — manuelle, automatique et semi-automatique.
 ---
 
 # Gestion de la mémoire
 
-:::warning
+## Le problème fondamental
 
-Section en construction. Les contenus seront ajoutés au fur et à mesure de l'avancement du cours.
+Tout programme a besoin de mémoire pour stocker ses données : variables
+locales, objets créés à l'exécution, chaînes de caractères, structures de
+données. La question centrale de la gestion mémoire est : **quand et comment
+la mémoire allouée peut-elle être libérée ?**
 
+L'allocation est simple — on réserve de l'espace quand on en a besoin. La
+**désallocation** est difficile : il faut savoir précisément à quel moment un
+objet n'est plus utilisé, ni trop tôt (risque d'accéder à de la mémoire
+libérée) ni trop tard (fuite mémoire).
+
+## Trois approches
+
+Les langages de programmation modernes proposent trois grandes familles de
+stratégies pour gérer la désallocation.
+
+### Gestion manuelle
+
+Le programmeur est entièrement responsable de libérer la mémoire qu'il a
+allouée. C en est l'exemple canonique : `malloc` alloue, `free` libère, et
+c'est le programmeur qui décide quand appeler chacune.
+
+**Avantages :** contrôle total, performances prévisibles, pas de surcharge au
+moment de l'exécution.
+
+**Inconvénients :** source intarissable de bogues graves (fuites mémoire,
+pointeurs fous, doubles libérations).
+
+### Gestion automatique (*Garbage Collection*)
+
+Le langage prend en charge la libération automatique. Un composant appelé
+**ramasse-miettes** (*garbage collector*, GC) détecte périodiquement les objets
+qui ne sont plus accessibles et les récupère. Java, Python, Haskell, Go et la
+plupart des langages modernes utilisent cette approche.
+
+**Avantages :** élimination de toute une classe de bogues, productivité
+accrue, facilité de partager des structures entre bibliothèques.
+
+**Inconvénients :** pauses imprévisibles (*stop-the-world*), consommation
+mémoire plus élevée, moins adapté aux systèmes temps réel.
+
+### Gestion semi-automatique
+
+Le programmeur contrôle explicitement la désallocation, mais le compilateur
+**vérifie statiquement** que les règles sont respectées. Rust est le représentant
+le plus connu : son système d'*ownership* et de *borrowing* garantit au
+moment de la compilation qu'aucun pointeur fou ni fuite mémoire ne peut
+survenir, sans nécessiter de GC.
+
+**Avantages :** sûreté équivalente au GC, performances équivalentes au C,
+détection des erreurs à la compilation.
+
+**Inconvénients :** courbe d'apprentissage plus raide, contraintes sur le
+style de programmation.
+
+:::info[Granularité d'allocation]
+Une autre dimension orthogonale concerne la **granularité** :
+
+- **Par objet** — chaque objet est alloué et désalloué individuellement (cas
+  de `malloc`/`free`).
+- **Par région** — tous les objets sont alloués dans une région commune ; la
+  désallocation porte sur toute la région d'un coup. La région est plus
+  efficace à libérer, mais un seul objet encore nécessaire bloque toute la
+  région.
 :::
+
+## Plan du module
+
+Ce module couvre les thèmes suivants :
+
+1. [**Pile, tas et zone statique**](pile-tas) — les trois régions de mémoire
+   d'un processus et comment le compilateur les utilise.
+2. [**Gestion manuelle**](gestion-manuelle) — `malloc`/`free` en C, les
+   erreurs classiques et l'outil `valgrind`.
+3. [**Gestion automatique**](gestion-automatique) — comptage de références,
+   algorithmes Mark & Sweep et Stop & Copy.
+4. [**Rust et la gestion semi-automatique**](rust) — ownership, borrowing,
+   lifetimes.
 

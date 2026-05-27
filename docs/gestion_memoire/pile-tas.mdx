@@ -1,0 +1,223 @@
+---
+sidebar_position: 2
+sidebar_label: Pile, tas et zone statique
+description: Les trois régions de mémoire d'un processus — zone statique, pile et tas — et leur rôle dans l'exécution d'un programme C.
+---
+
+# Pile, tas et zone statique
+
+Quand un programme s'exécute, le système d'exploitation lui alloue un espace
+mémoire divisé en trois régions aux rôles distincts.
+
+```
+┌─────────────────────────────┐  adresses hautes
+│  Pile (stack)               │  variables locales, cadres d'appel
+│  ↓ croît vers le bas        │  durée de vie liée aux fonctions
+├─────────────────────────────┤
+│             …               │
+├─────────────────────────────┤
+│  Tas (heap)                 │  malloc / free
+│  ↑ croît vers le haut       │  durée de vie gérée manuellement
+├─────────────────────────────┤
+│  Zone statique              │  variables globales et static
+│  Code (text)                │  instructions compilées, constantes
+└─────────────────────────────┘  adresses basses
+```
+
+| Région | Contenu | Durée de vie |
+|---|---|---|
+| Zone statique | Variables globales, `static`, constantes, code | Toute la durée du processus |
+| Pile | Variables locales, paramètres, adresses de retour | Liée à l'appel de fonction |
+| Tas | Blocs alloués par `malloc` | Contrôlée manuellement |
+
+## La zone statique
+
+La **zone statique** est la plus simple : elle est remplie au chargement du
+programme et reste intacte jusqu'à sa terminaison. Elle contient :
+
+- Les **instructions compilées** (le code machine du programme).
+- Les **variables globales** — celles déclarées en dehors de toute fonction.
+- Les **variables `static`** — déclarées dans une fonction mais dont la valeur
+  survit entre les appels.
+- Les **littéraux de chaînes** (ex. `"hello"`) et autres constantes.
+
+```c
+int compteur = 0;         /* variable globale — zone statique */
+
+void incrementer(void) {
+    static int appels = 0;  /* variable static — zone statique */
+    appels++;
+    compteur++;
+}
+```
+
+Comme la zone statique est allouée une seule fois et ne se redimensionne
+jamais, sa taille doit être entièrement connue à la compilation.
+
+## La pile
+
+La **pile** (*stack*) stocke les **cadres d'activation** (*activation records*
+ou *stack frames*) des fonctions en cours d'exécution. Chaque appel de fonction
+empile un nouveau cadre ; quand la fonction retourne, son cadre est dépilé et
+la mémoire correspondante est immédiatement récupérée.
+
+Un cadre d'activation contient typiquement :
+
+- Les **paramètres** de la fonction.
+- Les **variables locales**.
+- L'**adresse de retour** — l'adresse de l'instruction à exécuter après le
+  retour.
+
+### Exemple pas-à-pas
+
+```c
+int times2(int y) {
+    return y * y;
+}
+
+int foo(int x) {
+    int a = times2(3);
+    int b = times2(7);
+    return a + b + x;
+}
+```
+
+**Étape 1 — appel de `foo(5)`** : un cadre est empilé pour `foo`, contenant
+`x = 5`, `a` et `b` non encore initialisés.
+
+```
+┌─────────────┐
+│  foo        │
+│  x = 5      │
+│  a = ?      │
+│  b = ?      │
+└─────────────┘
+```
+
+**Étape 2 — appel de `times2(3)`** : un second cadre est empilé *par-dessus*
+celui de `foo`.
+
+```
+┌─────────────┐
+│  times2     │
+│  y = 3      │
+├─────────────┤
+│  foo        │
+│  x = 5      │
+│  a = ?      │
+│  b = ?      │
+└─────────────┘
+```
+
+**Étape 3 — retour de `times2(3)`** : le résultat 9 est placé dans `a`, le
+cadre de `times2` est dépilé.
+
+```
+┌─────────────┐
+│  foo        │
+│  x = 5      │
+│  a = 9      │
+│  b = ?      │
+└─────────────┘
+```
+
+**Étape 4 — appel de `times2(7)`** : un nouveau cadre est empilé pour ce
+second appel.
+
+```
+┌─────────────┐
+│  times2     │
+│  y = 7      │
+├─────────────┤
+│  foo        │
+│  x = 5      │
+│  a = 9      │
+│  b = ?      │
+└─────────────┘
+```
+
+**Étape 5 — retour de `times2(7)`** : le résultat 49 est placé dans `b`, le
+cadre de `times2` est dépilé.
+
+```
+┌─────────────┐
+│  foo        │
+│  x = 5      │
+│  a = 9      │
+│  b = 49     │
+└─────────────┘
+```
+
+**Étape 6 — retour de `foo`** : calcule `9 + 49 + 5 = 63`, dépile son cadre.
+Le résultat est transmis à l'appelant (généralement via un registre processeur).
+
+:::info[Pourquoi la pile fonctionne-t-elle si bien ?]
+La pile fonctionne parce que les fonctions suivent une discipline
+**LIFO** (*Last In, First Out*) : la dernière fonction appelée est toujours la
+première à retourner. Cette propriété garantit que le cadre au sommet de la
+pile correspond toujours à la fonction en cours d'exécution.
+
+En C, cela est toujours vrai car il n'y a pas de fermetures. Une fonction
+appelée est active uniquement pendant la durée du cadre d'activation de
+son appelant.
+:::
+
+### Limites de la pile
+
+La pile est rapide et automatique, mais elle présente deux limites importantes :
+
+1. **Taille fixe connue à la compilation** — on ne peut pas créer un tableau
+   dont la taille dépend d'une entrée utilisateur directement sur la pile.
+2. **Capacité réduite** — typiquement quelques mégaoctets. Un débordement de
+   pile (*stack overflow*) survient quand la récursion est trop profonde ou
+   qu'on déclare de très grands tableaux locaux.
+
+```c
+void recursion_infinie(void) {
+    int tampon[1024];      /* 4 Ko consommés à chaque appel */
+    recursion_infinie();   /* stack overflow assuré */
+}
+```
+
+## Le tas
+
+Le **tas** (*heap*) est une zone mémoire bien plus grande, gérée manuellement
+par le programmeur à l'aide des fonctions `malloc` et `free`. Contrairement à
+la pile, la durée de vie d'un bloc alloué sur le tas n'est pas liée à un appel
+de fonction : le bloc existe jusqu'à ce que le programme le libère
+explicitement.
+
+```c
+#include <stdlib.h>
+
+int n = 10;
+int* t = malloc(n * sizeof(int));  /* alloue sur le tas */
+/* ... utilise t ... */
+free(t);                           /* libère manuellement */
+```
+
+Les détails de `malloc` et `free`, ainsi que les erreurs classiques associées,
+sont couverts dans la section [Gestion manuelle](gestion-manuelle).
+
+:::caution[Pointeurs vers la pile : attention à la durée de vie]
+Il est tentant de retourner un pointeur vers une variable locale. C'est un
+bogue classique :
+
+```c
+int* creer(void) {
+    int x = 42;
+    return &x;   /* DANGER : x est sur la pile et sera dépilé au retour ! */
+}
+
+int main(void) {
+    int* p = creer();
+    printf("%d\n", *p);  /* comportement indéfini : le cadre de creer n'existe plus */
+    return 0;
+}
+```
+
+Le cadre d'activation de `creer` est dépilé dès son retour. L'adresse de `x`
+pointe alors vers une zone de pile qui peut être réutilisée à tout moment par
+le prochain appel de fonction. Pour retourner un objet dont la durée de vie
+dépasse la fonction, il faut l'allouer sur le tas avec `malloc`.
+:::

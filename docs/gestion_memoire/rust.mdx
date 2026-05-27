@@ -1,0 +1,285 @@
+---
+sidebar_position: 5
+sidebar_label: Rust et la gestion semi-automatique
+description: Gestion mémoire semi-automatique avec Rust — ownership, borrowing et lifetimes.
+---
+
+# Rust et la gestion semi-automatique
+
+## Motivation
+
+La gestion manuelle (C) est source intarissable de bogues graves. La gestion
+automatique (GC) résout les bogues, mais introduit des pauses imprévisibles,
+une consommation mémoire plus élevée, et nécessite que tout le système soit
+conçu autour du GC.
+
+**Peut-on avoir les deux à la fois ?** Sûreté mémoire sans GC, performances
+équivalentes à C, détection des erreurs à la compilation plutôt qu'à
+l'exécution ?
+
+Rust est le premier langage populaire à proposer une réponse affirmative.
+Il **permet au programmeur de contrôler explicitement la désallocation**, mais
+**vérifie statiquement** — au moment de la compilation — que ces désallocations
+sont correctes.
+
+:::info[Positionnement de Rust]
+Rust est souvent décrit comme un mélange entre C et Haskell :
+
+| Hérité de C | Hérité de Haskell |
+|---|---|
+| Langage de bas niveau | Encourage l'immuabilité |
+| Gestion mémoire explicite | Types algébriques |
+| Références explicites | Typage statique fort |
+| Performances | Traits (classes de types) |
+:::
+
+## Ownership — la propriété
+
+Le mécanisme central de Rust est le système d'**ownership** (propriété).
+Les règles sont simples :
+
+1. Chaque valeur a **exactement un propriétaire** à la fois.
+2. Quand le propriétaire **sort de portée**, la valeur est automatiquement
+   désallouée.
+3. La propriété peut être **transférée** (*moved*), mais pas dupliquée.
+
+```rust
+fn main() {
+    let s1 = String::from("hello");  // s1 est propriétaire de la chaîne
+    let s2 = s1;                     // la propriété est transférée à s2
+    // println!("{}", s1);           // ERREUR : s1 n'est plus valide !
+    println!("{}", s2);              // ok
+}   // s2 sort de portée : la chaîne est désallouée ici
+```
+
+Le compilateur Rust rejette le programme si on tente d'utiliser `s1` après le
+transfert. La chaîne est désallouée automatiquement à la fin de la portée de
+`s2` — sans GC, sans `free` explicite.
+
+### Comparaison avec C
+
+```c
+/* En C : le compilateur ne vérifie rien */
+char* s1 = malloc(6);
+strcpy(s1, "hello");
+char* s2 = s1;    /* s1 et s2 pointent vers le même bloc */
+free(s1);
+free(s2);         /* double free — comportement indéfini ! */
+```
+
+En C, le compilateur autorise ce code. En Rust, le système d'ownership rend
+ce scénario impossible par construction.
+
+### Transfert vers une fonction
+
+Passer une valeur à une fonction **transfère** la propriété à cette fonction.
+L'appelant ne peut plus utiliser la valeur.
+
+```rust
+fn afficher(s: String) {
+    println!("s = {}", s);
+}   // s sort de portée ici : la chaîne est désallouée
+
+fn main() {
+    let s = String::from("hello");
+    afficher(s);             // transfert de propriété à afficher
+    // println!("{}", s);   // ERREUR : s n'est plus valide
+}
+```
+
+## Le trait `Copy`
+
+Certains types, comme les entiers et les flottants, sont si simples (taille
+fixe, pas de pointeurs internes) que les copier est trivial et peu coûteux.
+Pour ces types, Rust effectue une **copie silencieuse** au lieu d'un transfert :
+
+```rust
+fn main() {
+    let x1 = 16;
+    let x2 = x1;              // copie (pas de transfert)
+    println!("{}", x1 + x2);  // x1 est toujours valide : 32
+}
+```
+
+Un type implémente le trait `Copy` si et seulement s'il peut être copié par
+simple copie bit à bit. Les types qui possèdent des ressources (comme `String`,
+qui alloue sur le tas) n'implémentent **pas** `Copy`, car une copie naïve
+créerait deux propriétaires du même bloc mémoire.
+
+## Borrowing — emprunter sans transférer
+
+Transférer la propriété à chaque appel de fonction est souvent trop restrictif.
+Rust offre les **références** (*borrows*) pour permettre l'accès à une valeur
+sans en prendre la propriété.
+
+```rust
+fn afficher(s: &String) {        // prend une référence (emprunt)
+    println!("s = {}", s);
+}   // la référence expire ici, mais s n'est PAS désallouée
+
+fn main() {
+    let s = String::from("hello");
+    afficher(&s);                // prête s sans transférer la propriété
+    println!("{}", s);           // s est encore valide !
+}
+```
+
+L'opérateur `&` crée une référence vers la valeur. La fonction `afficher`
+*emprunte* `s` le temps de son exécution : elle peut lire la valeur, mais pas
+en prendre la propriété ni la désallouer.
+
+### Références mutables
+
+Par défaut, les références sont **en lecture seule**. Pour modifier la valeur
+empruntée, on utilise une **référence mutable** `&mut T` :
+
+```rust
+fn doubler(v: &mut Vec<i32>) {
+    v.push(42);   // modification autorisée via &mut
+}
+
+fn main() {
+    let mut nombres = vec![1, 2, 3];
+    doubler(&mut nombres);
+    println!("{:?}", nombres);   // [1, 2, 3, 42]
+}
+```
+
+### Règles du borrowing
+
+Le système d'ownership impose des règles strictes sur les références pour
+éviter les bogues d'alias :
+
+| Règle | Signification |
+|---|---|
+| Plusieurs `&T` simultanées | Autorisé — plusieurs lecteurs en même temps |
+| Une seule `&mut T` à la fois | Une seule écriture à la fois |
+| Pas de `&mut T` et `&T` en même temps | Pas de lecteur pendant une écriture |
+
+```rust
+let mut s = String::from("hello");
+
+let r1 = &s;       // ok — première référence en lecture
+let r2 = &s;       // ok — deuxième référence en lecture
+// let r3 = &mut s;  // ERREUR : on ne peut pas écrire quand on lit
+
+println!("{} {}", r1, r2);  // r1 et r2 utilisées ici, puis expirées
+
+let r3 = &mut s;   // ok maintenant — r1 et r2 ont expiré
+r3.push_str(", world");
+```
+
+Ces règles éliminent toute une famille de bogues liés aux **alias** : deux
+pointeurs qui désignent le même objet et dont l'un modifie l'objet pendant
+que l'autre le lit.
+
+## Slices — références sur des sous-tableaux
+
+Au lieu de pointer au milieu d'un tableau avec de l'arithmétique de pointeurs
+(comme en C), Rust offre les **slices** — des références portant à la fois un
+pointeur et une longueur.
+
+```rust
+fn main() {
+    let s = String::from("Hello, world");
+    let sub: &str = &s[0..5];   // slice sur les 5 premiers octets
+    println!("{}", sub);         // Hello
+}
+```
+
+Le type `&str` (*string slice*) est une référence sur une sous-chaîne. Il
+contient un pointeur vers le début et la longueur de la tranche — impossible
+de déborder sans que le compilateur ou le runtime ne le détecte.
+
+## Éviter les références folles
+
+En C, retourner un pointeur vers une variable locale est un bogue classique.
+Rust le rend impossible à la compilation :
+
+```rust
+fn dangereux() -> &String {
+    let s = String::from("Hello");
+    &s   // ERREUR : s est désalloué à la fin de la fonction !
+}        // Rust refuse de compiler ce code
+```
+
+Pour retourner la valeur, on transfère la propriété (en retournant `String`
+plutôt que `&String`) :
+
+```rust
+fn correct() -> String {
+    let s = String::from("Hello");
+    s   // transfert de propriété — la valeur survit à la fonction
+}
+```
+
+## Lifetimes — durées de vie explicites
+
+Lorsque plusieurs références ont des durées de vie différentes, le compilateur
+doit vérifier qu'aucune référence ne survit à l'objet qu'elle désigne. Dans
+les cas simples, Rust infère les lifetimes automatiquement (*elision*). Dans
+les cas ambigus, le programmeur doit les annoter explicitement.
+
+```rust
+/* Sans annotation, le compilateur ne sait pas quelle lifetime
+   associer à la valeur de retour */
+fn longest<'a>(x: &'a String, y: &'a String) -> &'a String {
+    if x.len() > y.len() { x } else { y }
+}
+```
+
+L'annotation `'a` indique que la référence retournée a une durée de vie au
+plus égale au minimum des durées de vie de `x` et `y`. Cela permet au
+compilateur de vérifier que la référence retournée ne survit pas à ses sources.
+
+```rust
+fn main() {
+    let s1 = String::from("long string");
+    let result;
+    {
+        let s2 = String::from("xy");
+        result = longest(&s1, &s2);
+        println!("{}", result);   // ok — result utilisé avant la fin de s2
+    }
+    // println!("{}", result);   // ERREUR : s2 est désalloué, result serait fou
+}
+```
+
+:::info[Les lifetimes ne sont pas une nouveauté conceptuelle]
+Les lifetimes existent implicitement dans tout programme C — le compilateur C
+ne les vérifie simplement pas. Le programmeur doit s'assurer manuellement
+qu'un pointeur ne survit pas à l'objet qu'il désigne. Rust rend cette
+contrainte explicite et la vérifie automatiquement.
+
+La difficulté n'est pas artificielle : le même problème existe en C, mais le
+compilateur Rust aide là où C produit des core dumps.
+:::
+
+## Contrôle de la mutabilité
+
+L'ownership contrôle aussi les **mutations** pour éviter les bogues d'alias :
+
+```rust
+let mut v = Vec::new();
+v.push(1);
+v.push(2);
+
+let ref1 = &v[0];     // référence vers le premier élément
+// v.push(3);         // ERREUR : push peut réallouer le vecteur,
+                      // invalidant ref1 !
+println!("{}", ref1); // ok si push est commenté
+```
+
+En C, ce scénario (*iterator invalidation*) provoque des bogues silencieux et
+difficiles à diagnostiquer. Rust le détecte statiquement.
+
+## Résumé
+
+| Aspect | C (manuel) | GC (automatique) | Rust (semi-automatique) |
+|---|---|---|---|
+| Qui libère | Le programmeur | Le GC | Le compilateur (au moment où le propriétaire sort de portée) |
+| Fuites possibles ? | Oui | Non | Non |
+| Pointeurs fous possibles ? | Oui | Non | Non |
+| Pauses GC | Non | Oui | Non |
+| Détection des erreurs | À l'exécution | À l'exécution | À la compilation |
+| Courbe d'apprentissage | Faible | Faible | Élevée |
