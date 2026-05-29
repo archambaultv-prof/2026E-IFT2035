@@ -156,7 +156,7 @@ Tas :  a✓ b  c✓ d  e✓ f  g  h  i✓ j  k✓ l
        (b, d, f, g, h, j, l sont inaccessibles)
 
 Après Sweep — objets non marqués libérés :
-Tas :  a  c  e  i  k
+Tas :  a     c     e            i      k
        (les trous sont réintégrés dans la free list)
 ```
 
@@ -189,24 +189,35 @@ et l'espace de destination (*To*).
 4. **Libérer** *From* d'un seul coup — toute la moitié devient disponible.
 5. **Échanger** les rôles de *From* et *To*.
 
-```
-copy(ptr):
-  si ptr n'a pas encore de forwarding pointer:
-    copier les octets de ptr vers alloc_ptr
-    ptr->forward = alloc_ptr  (forwarding pointer)
-    avancer alloc_ptr
-  retourner ptr->forward
+### Forwarding pointer (pointeur de redirection)
 
-stop_and_copy():
-  alloc_ptr = scan_ptr = début de To
-  pour chaque racine r:
-    r = copy(r)
-  tant que scan_ptr < alloc_ptr:
-    pour chaque pointeur p dans *scan_ptr:
-      p = copy(p)
-    avancer scan_ptr
-  libérer From d'un seul coup
+Lorsqu'un objet est copié de l'espace *From* vers l'espace *To*, il faut s'assurer que tous les pointeurs qui faisaient référence à l'ancien emplacement de l'objet soient mis à jour pour pointer vers le nouvel emplacement. Pour cela, on utilise un **forwarding pointer** (pointeur de redirection).
+
+- Quand un objet est copié pour la première fois, on laisse à son ancienne adresse (dans *From*) un marqueur spécial : le forwarding pointer, qui contient l'adresse du nouvel emplacement (dans *To*).
+- Si, lors de la copie d'autres objets, on rencontre un pointeur vers un objet déjà copié, on détecte la présence du forwarding pointer et on met à jour le pointeur pour qu'il référence directement la nouvelle adresse, sans recopier l'objet.
+
+Cela permet d'éviter de copier plusieurs fois le même objet et de garantir la cohérence de tous les pointeurs.
+
+#### Schéma
+
 ```
+Avant copie :
+  [From]   ... |  OBJ1  | ...
+  [To]     ... |        | ...
+
+Après copie de OBJ1 :
+  [From]   ... |  →OBJ1'| ...   (forwarding pointer vers OBJ1' dans To)
+  [To]     ... |  OBJ1' | ...
+
+Si un autre objet pointe vers OBJ1 dans From, on suit le forwarding pointer pour obtenir l'adresse de OBJ1' dans To.
+```
+
+#### Étapes détaillées
+
+1. On commence à copier les objets accessibles depuis les racines.
+2. Pour chaque champ pointeur d'un objet copié, si la cible n'a pas encore été copiée, on la copie et on place un forwarding pointer à son ancienne adresse.
+3. Si la cible a déjà été copiée (il y a un forwarding pointer à son ancienne adresse), on lit ce forwarding pointer pour obtenir la nouvelle adresse et on met à jour le pointeur.
+4. À la fin, tous les pointeurs des objets vivants pointent vers des adresses dans *To*.
 
 ### Illustration pas-à-pas
 
@@ -217,7 +228,6 @@ Racines : x→a, y→c, z→(rien de nouveau)
 
 Étape 1 — copier a (accessible depuis x) :
 To :  a
-Forwarding pointer : From[a] → To[a]
 
 Étape 2 — a pointait vers e, copier e :
 To :  a  e
@@ -253,21 +263,6 @@ b, d, f, g, h, j, l → libérés
   la copie.
 - **Coût proportionnel aux objets vivants** — même si peu d'objets meurent,
   tous les survivants sont copiés.
-
-## Besoins des algorithmes de GC
-
-Pour fonctionner, un GC a besoin d'informations que le compilateur doit
-fournir :
-
-| Information | Utilité |
-|---|---|
-| Taille de chaque objet | Pour copier ou balayer le tas linéairement |
-| Quels champs sont des pointeurs | Pour suivre le graphe d'accessibilité |
-| Liste de toutes les racines | Point de départ du parcours |
-| Accès au tas entier | Pour balayer (M&S) ou copier (S&C) |
-
-En C, le compilateur ne fournit pas ces informations au GC — c'est l'une des
-raisons pour lesquelles C n'a pas de GC standard.
 
 ## Stop-the-world et variantes
 
@@ -310,9 +305,20 @@ La **finalisation** permet d'associer à un objet une fonction à exécuter
 *avant* sa désallocation. Cela sert à libérer des ressources qui ne sont pas
 de la mémoire : fichiers ouverts, connexions réseau, verrous.
 
-```haskell
--- Haskell : addFinalizer associe une action à un objet
-addFinalizer monObjet (putStrLn "Objet libéré !")
+
+```python
+# Python : finalisation avec __del__
+class Ressource:
+  def __del__(self):
+    print("Objet libéré !")
+
+# Ou, de façon plus sûre, avec weakref.finalize
+import weakref
+class Fichier:
+  def __init__(self, nom):
+    self.nom = nom
+    self.handle = open(nom, 'w')
+    weakref.finalize(self, self.handle.close)
 ```
 
 :::caution[Garanties limitées]
@@ -331,3 +337,19 @@ toujours vérifier si l'objet est encore vivant.
 Ils sont typiquement utilisés dans les **caches** : on garde une référence
 faible vers un objet en cache, mais si la mémoire vient à manquer, le GC peut
 le libérer librement. Au prochain accès, on recalcule simplement la valeur.
+
+```python
+# Python : exemple de pointeur faible
+import weakref
+
+class Donnee:
+  def __str__(self):
+    return "Je suis une donnée"
+
+obj = Donnee()
+faible = weakref.ref(obj)  # pointeur faible vers obj
+
+print(faible())  # affiche l'objet tant qu'il existe
+del obj
+print(faible())  # affiche None : l'objet a été collecté
+```
