@@ -1,0 +1,77 @@
+﻿---
+sidebar_position: 3
+sidebar_label: "Ex. 3 — Comptage de références"
+description: Implémenter une bibliothèque de listes chaînées en C avec comptage de références.
+---
+
+# Exercice 3 — Comptage de références
+
+## Contexte
+
+Le **comptage de références** est une technique de gestion automatique de la
+mémoire : chaque objet maintient un compteur du nombre de pointeurs qui
+le désignent. Quand ce compteur tombe à 0, l'objet peut être libéré.
+
+## La bibliothèque
+
+Voici l'interface d'une bibliothèque de listes simplement chaînées en C
+utilisant le comptage de références :
+
+```c
+typedef struct list list;
+
+struct list {
+    int      refcount;
+    void    *value;
+    list    *next;
+};
+
+/* Constructeur : alloue un nouveau nœud avec car comme valeur
+   et cdr comme suite. */
+list *list_new(void *car, list *cdr);
+
+/* Accesseurs */
+void *list_car(list *l);
+list *list_cdr(list *l);
+
+/* Maintenance des compteurs de référence. */
+void list_incr(list *l);
+void list_decr(list *l);
+```
+
+## Questions
+
+### Partie A — Implémentation de base
+
+1. Écrire le code des cinq fonctions proposées (`list_new`, `list_car`,
+   `list_cdr`, `list_incr`, `list_decr`).
+
+   Pour `list_decr`, penser à libérer récursivement les ressources quand
+   le compteur atteint 0.
+
+2. Compléter la bibliothèque en ajoutant une fonction `list_map` :
+
+   ```c
+   /* Applique f à chaque valeur de la liste et retourne une nouvelle liste. */
+   list *list_map(list *l, void *(*f)(void *));
+   ```
+
+### Partie B — Convention sur les incréments et décréments
+
+3. Justifier pourquoi les incréments et décréments que vous avez placés
+   dans votre implémentation sont **suffisants** pour garantir que le
+   comportement sera toujours correct.
+
+4. En extraire une **convention** précisant :
+   - Qui de l'**appelant** ou de l'**appelé** est responsable de quels
+     incréments et décréments ?
+   - Ces règles s'appliquent-elles uniformément à toutes les fonctions, ou
+     certaines sont-elles spéciales ? Lesquelles et pourquoi ?
+
+### Partie C — Listes de listes
+
+5. Que se passe-t-il si vous voulez manipuler des listes de listes
+   (i.e., `void *value` pointe lui-même vers une `list`) ?
+
+6. Le comptage de références peut-il gérer correctement une liste qui
+   se pointe elle-même (cycle) ? Expliquer.

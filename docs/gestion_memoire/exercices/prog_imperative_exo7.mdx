@@ -1,0 +1,123 @@
+﻿---
+sidebar_position: 7
+sidebar_label: "Ex. 7 — Lifetimes et ownership avancé"
+description: Appliquer les lifetimes explicites et les patterns d'ownership avancés en Rust.
+---
+
+# Exercice 7 — Lifetimes et ownership avancé
+
+## Partie A — Lifetimes explicites
+
+### Contexte
+
+En Rust, chaque référence a une **lifetime** (durée de vie). Le compilateur
+l'infère automatiquement dans la plupart des cas. Quand plusieurs références
+sont impliquées et que le compilateur ne peut pas déterminer seul quelle
+lifetime associer à la valeur de retour, il faut l'annoter explicitement.
+
+```rust
+/* Exemple : le compilateur ne sait pas si le résultat
+   a la lifetime de x ou de y */
+fn plus_longue<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() >= y.len() { x } else { y }
+}
+```
+
+### Questions
+
+1. Que signifie l'annotation `'a` dans `plus_longue` ci-dessus ? Est-ce
+   que `'a` doit correspondre exactement à la lifetime de `x` ou de `y` ?
+   Expliquer ce que garantit le compilateur.
+
+2. Le programme suivant ne compile pas. Expliquer pourquoi et corriger en
+   ajoutant les annotations de lifetime nécessaires :
+
+   ```rust
+   fn premiere_occurrence(texte: &str, motif: &str) -> &str {
+       match texte.find(motif) {
+           Some(i) => &texte[i..i + motif.len()],
+           None    => "",
+       }
+   }
+   ```
+
+3. Soit la fonction suivante :
+
+   ```rust
+   fn choisir<'a, 'b>(condition: bool, x: &'a str, y: &'b str) -> ??? {
+       if condition { x } else { y }
+   }
+   ```
+
+   Est-il possible de donner une signature valide à `choisir` ? Pourquoi ou
+   pourquoi pas ? Proposer une signature valide et expliquer les compromis.
+
+## Partie B — Ownership et structures
+
+4. Soit la structure suivante qui représente un texte découpé en mots :
+
+   ```rust
+   struct Document {
+       contenu: String,
+       premier_mot: &str,  /* erreur de compilation */
+   }
+   ```
+
+   Le compilateur refuse ce code. Expliquer pourquoi et donner deux
+   solutions différentes :
+   - Une utilisant une lifetime explicite.
+   - Une évitant les références dans la structure.
+
+5. Écrire une fonction `premier_mot` qui prend une référence vers une
+   `String` et retourne une slice (`&str`) sur le premier mot (jusqu'au
+   premier espace) :
+
+   ```rust
+   fn premier_mot(s: &str) -> &str {
+       // ...
+   }
+
+   fn main() {
+       let phrase = String::from("bonjour monde");
+       let mot = premier_mot(&phrase);
+       // phrase.clear();   // que se passe-t-il si on décommente cette ligne ?
+       println!("{}", mot);
+   }
+   ```
+
+   Expliquer ce qui se passerait si on décommentait `phrase.clear()` avant
+   le `println!`. Pourquoi Rust refuse-t-il ce code ?
+
+## Partie C — Listes chaînées en Rust
+
+6. En C, une liste chaînée s'implémente simplement avec des pointeurs. En
+   Rust, la transposition naïve pose problème :
+
+   ```rust
+   enum List {
+       Cons(i32, List),  /* erreur : taille infinie */
+       Nil,
+   }
+   ```
+
+   Expliquer pourquoi ce code ne compile pas et comment le corriger en
+   utilisant `Box<T>` (un pointeur alloué sur le tas).
+
+7. Une fois la liste définie avec `Box<T>`, écrire une fonction récursive
+   `somme` qui calcule la somme de tous les éléments d'une liste.
+
+## Partie D — Réflexion sur les trois approches
+
+8. Compléter le tableau comparatif suivant :
+
+   | Aspect | C (manuel) | Rust (semi-auto) | Java/Python (GC) |
+   |---|---|---|---|
+   | Détection des erreurs | À l'exécution | ? | ? |
+   | Performances | Maximales | ? | ? |
+   | Pauses GC | Aucune | ? | ? |
+   | Fuites mémoire possibles | Oui | ? | ? |
+   | Pointeurs fous possibles | Oui | ? | ? |
+   | Courbe d'apprentissage | Moyenne | ? | ? |
+
+9. Dans quels types de projets Rust est-il particulièrement adapté par
+   rapport à Java ou Python ? Donner deux exemples concrets.

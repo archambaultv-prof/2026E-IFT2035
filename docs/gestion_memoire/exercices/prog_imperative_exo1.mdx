@@ -1,0 +1,87 @@
+﻿---
+sidebar_position: 1
+sidebar_label: "Ex. 1 — Pile, tas et zone statique"
+description: Identifier les régions mémoire utilisées par un programme C et tracer les cadres d'activation.
+---
+
+# Exercice 1 — Pile, tas et zone statique
+
+## Partie A — Classifier les variables
+
+Soit le programme C suivant :
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int compteur = 0;
+
+void incrementer(void) {
+    static int appels = 0;
+    appels++;
+    compteur++;
+    printf("appel %d, compteur = %d\n", appels, compteur);
+}
+
+int* creer_tableau(int n) {
+    int* t = malloc(n * sizeof(int));
+    for (int i = 0; i < n; i++) {
+        t[i] = i * i;
+    }
+    return t;
+}
+
+int main(void) {
+    int x = 10;
+    int* tab = creer_tableau(x);
+    incrementer();
+    incrementer();
+    free(tab);
+    return 0;
+}
+```
+
+Pour chacune des variables ci-dessous, indiquer dans quelle région mémoire
+elle est stockée (**zone statique**, **pile**, ou **tas**) et justifier :
+
+| Variable | Région | Justification |
+|---|---|---|
+| `compteur` (globale) | ? | |
+| `appels` (static dans `incrementer`) | ? | |
+| `x` (dans `main`) | ? | |
+| `tab` (le pointeur, dans `main`) | ? | |
+| `*tab` (le bloc pointé, i.e. le contenu) | ? | |
+| `t` (le pointeur, dans `creer_tableau`) | ? | |
+| `n` (paramètre de `creer_tableau`) | ? | |
+
+## Partie B — Tracer les cadres d'activation
+
+Pendant l'exécution de `creer_tableau(x)` appelée depuis `main` :
+
+1. Dessiner l'état de la pile avec les cadres d'activation de `main` et
+   `creer_tableau`. Montrer le contenu de chaque cadre (variables locales,
+   paramètres).
+
+2. Dessiner l'état du tas à ce même moment.
+
+3. Que se passe-t-il dans la pile quand `creer_tableau` retourne ? Le
+   contenu du tas change-t-il ?
+
+## Partie C — Durées de vie
+
+4. Quelle est la durée de vie du bloc alloué par `malloc` dans
+   `creer_tableau` ? Est-elle liée à la durée de vie du pointeur `t` ?
+
+5. Si on omettait l'instruction `free(tab)` dans `main`, quel type de
+   problème se produirait ? Ce problème serait-il visible immédiatement ?
+
+6. Expliquer pourquoi retourner un pointeur vers une variable locale est
+   dangereux en C. Donner un exemple de code qui présente ce problème.
+
+## Partie D — Zone statique et `static`
+
+7. Combien de fois la variable `appels` est-elle initialisée pendant toute
+   l'exécution du programme ?
+
+8. Quelle est la différence entre `compteur` (globale) et `appels` (static) ?
+   En quoi sont-elles semblables du point de vue de la région mémoire ?

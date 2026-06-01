@@ -1,0 +1,82 @@
+﻿---
+sidebar_position: 2
+sidebar_label: "Ex. 2 — Bogues de gestion manuelle"
+description: Identifier et corriger des bogues classiques de gestion mémoire en C — pointeurs fous, fuites et doubles libérations.
+---
+
+# Exercice 2 — Bogues de gestion mémoire manuelle
+
+## Partie A — Identifier les bogues
+
+Chacun des extraits de code suivants contient un ou plusieurs bogues de
+gestion mémoire. Pour chaque extrait :
+
+- Identifier le ou les bogues (pointeur fou, fuite mémoire, double libération,
+  accès hors limites).
+- Expliquer ce qui peut se passer à l'exécution.
+- Proposer une correction.
+
+### Extrait 1
+
+```c
+int* creer(void) {
+    int tableau[5] = {0, 1, 2, 3, 4};
+    return tableau;
+}
+```
+
+### Extrait 2
+
+```c
+void traiter(int n) {
+    int* p = malloc(n * sizeof(int));
+    if (n == 0) {
+        printf("Rien à faire.\n");
+        return;
+    }
+    p[0] = 42;
+    printf("%d\n", p[0]);
+    free(p);
+}
+```
+
+### Extrait 3
+
+```c
+void dupliquer(int* src, int n) {
+    int* dst = malloc(n * sizeof(int));
+    for (int i = 0; i <= n; i++) {
+        dst[i] = src[i];
+    }
+    free(dst);
+}
+```
+
+### Extrait 4
+
+```c
+int* p = malloc(sizeof(int));
+*p = 10;
+free(p);
+free(p);
+```
+
+### Extrait 5
+
+```c
+char* copier_chaine(const char* s) {
+    int n = strlen(s);
+    char* buf = malloc(n + 1);  // +1 pour le caractère de fin de chaîne
+    strcpy(buf, s);
+    return buf;
+}
+```
+
+## Partie C — Réflexion
+
+6. Un programme qui présente une fuite mémoire peut-il terminer sans crash
+   visible ? Dans quels contextes une fuite mémoire est-elle particulièrement
+   dangereuse ?
+
+7. Comment l'affectation `p = NULL` après un `free(p)` aide-t-elle à éviter
+   les bogues de pointeur fou ?

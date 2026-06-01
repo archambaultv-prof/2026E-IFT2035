@@ -1,0 +1,109 @@
+﻿---
+sidebar_position: 6
+sidebar_label: "Ex. 6 — Borrowing en Rust"
+description: Comprendre et appliquer les règles d'emprunt de Rust pour corriger des erreurs de compilation.
+---
+
+# Exercice 6 — Borrowing en Rust
+
+## Rappel des règles
+
+Le système de *borrowing* de Rust impose les règles suivantes :
+
+- On peut avoir **plusieurs références immuables** (`&T`) en même temps.
+- On ne peut avoir qu'**une seule référence mutable** (`&mut T`) à la fois.
+- On **ne peut pas** avoir simultanément une référence mutable et une
+  référence immuable vers le même objet.
+- Une référence ne peut pas **survivre** à la valeur qu'elle désigne.
+
+## Partie A — Diagnostiquer les erreurs
+
+Chacun des extraits suivants ne compile pas. Pour chaque extrait :
+
+- Identifier la règle de borrowing violée.
+- Expliquer l'erreur en termes de sûreté mémoire (quel bogue cela évite-t-il ?).
+- Proposer une correction.
+
+### Extrait 1
+
+```rust
+fn main() {
+    let mut v = vec![1, 2, 3];
+    let premier = &v[0];
+    v.push(4);
+    println!("premier = {}", premier);
+}
+```
+
+### Extrait 2
+
+```rust
+fn main() {
+    let mut s = String::from("bonjour");
+    let r1 = &s;
+    let r2 = &mut s;
+    println!("{} {}", r1, r2);
+}
+```
+
+### Extrait 3
+
+```rust
+fn premiere_lettre(s: &str) -> &str {
+    let debut = String::from(s);
+    &debut[0..1]
+}
+```
+
+### Extrait 4
+
+```rust
+fn main() {
+    let reference;
+    {
+        let valeur = 42;
+        reference = &valeur;
+    }
+    println!("{}", reference);
+}
+```
+
+## Partie B — Passer les références correctement
+
+5. Écrire une fonction `ajouter_un` qui prend un vecteur **par référence
+   mutable** et incrémente chaque élément de 1. La fonction ne doit pas
+   prendre la propriété du vecteur.
+
+   ```rust
+   fn ajouter_un(/* compléter */) {
+       // ...
+   }
+
+   fn main() {
+       let mut nombres = vec![1, 2, 3];
+       ajouter_un(&mut nombres);
+       println!("{:?}", nombres);   // [2, 3, 4]
+   }
+   ```
+
+6. Écrire une fonction `maximum` qui prend une slice d'entiers (`&[i32]`)
+   et retourne le plus grand élément. Pourquoi passe-t-on une slice plutôt
+   que le vecteur entier ?
+
+   ```rust
+   fn maximum(/* compléter */) -> i32 {
+       // ...
+   }
+
+   fn main() {
+       let v = vec![3, 7, 1, 9, 2];
+       println!("max = {}", maximum(&v));
+       println!("{:?}", v);   // v est encore utilisable
+   }
+   ```
+
+## Partie C — Réflexion
+
+7. Les règles de borrowing de Rust sont plus restrictives que ce qui serait
+   strictement nécessaire pour éviter les bogues. Donner un exemple de code
+   qui semble correct logiquement mais que Rust refuse quand même.

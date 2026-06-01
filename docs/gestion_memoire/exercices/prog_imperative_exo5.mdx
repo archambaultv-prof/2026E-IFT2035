@@ -1,0 +1,58 @@
+﻿---
+sidebar_position: 5
+sidebar_label: "Ex. 5 — Transfert d'ownership en Rust"
+description: Comprendre et corriger une erreur de transfert de propriété en Rust.
+---
+
+# Exercice 5 — Transfert d'ownership en Rust
+
+## Le problème
+
+Soit le programme Rust suivant :
+
+```rust
+fn main() {
+    let vec0 = Vec::new();
+    let mut vec1 = fill_vec(vec0);
+
+    // Ne pas changer l'instruction suivante !
+    println!("{} has length {} content '{:?}'",
+             "vec0", vec0.len(), vec0);
+
+    vec1.push(88);
+    println!("{} has length {} content '{:?}'",
+             "vec1", vec1.len(), vec1);
+}
+
+fn fill_vec(vec: Vec<i32>) -> Vec<i32> {
+    let mut vec = vec;
+    vec.push(22);
+    vec.push(44);
+    vec.push(66);
+    vec
+}
+```
+
+Le compilateur signale une erreur sur le premier `println!` indiquant que
+`vec0` ne peut pas être utilisé.
+
+:::note[Note sur `{:?}`]
+Le `{:?}` dans `println!` sert à imprimer le contenu interne des structures
+de données dans un format destiné au débogage (*debug format*).
+:::
+
+## Questions
+
+1. **Décrire le problème.** Pourquoi `vec0` n'est-il plus utilisable après
+   l'appel à `fill_vec` ? Quel mécanisme du langage Rust explique cette
+   erreur ?
+
+2. **Proposer une correction** qui préserve l'instruction `println!` sur
+   `vec0` sans la modifier. Il doit être possible d'afficher `vec0` *et*
+   `vec1` après l'appel.
+
+3. **Discuter les alternatives.** Quelles autres approches permettraient de
+   résoudre ce problème ? Pour chacune, expliquer les compromis :
+   - Que peut faire `fill_vec` avec le vecteur ?
+   - Le vecteur original est-il modifiable par l'appelant après l'appel ?
+   - Y a-t-il une copie en mémoire ?

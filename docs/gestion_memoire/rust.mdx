@@ -23,7 +23,7 @@ Il **permet au programmeur de contrôler explicitement la désallocation**, mais
 sont correctes.
 
 :::info[Positionnement de Rust]
-Rust est souvent décrit comme un mélange entre C et Haskell :
+Rust est parfois décrit comme un mélange entre C et Haskell :
 
 | Hérité de C | Hérité de Haskell |
 |---|---|
@@ -32,6 +32,12 @@ Rust est souvent décrit comme un mélange entre C et Haskell :
 | Références explicites | Typage statique fort |
 | Performances | Traits (classes de types) |
 :::
+
+## Rust
+
+Pour en apprendre plus sur Rust, consultez la [documentation
+officielle](https://www.rust-lang.org/learn) et le [Rust
+Book](https://doc.rust-lang.org/book/).
 
 ## Ownership — la propriété
 
@@ -191,6 +197,40 @@ Le type `&str` (*string slice*) est une référence sur une sous-chaîne. Il
 contient un pointeur vers le début et la longueur de la tranche — impossible
 de déborder sans que le compilateur ou le runtime ne le détecte.
 
+### Slices et invalidation
+
+Une slice maintient un **emprunt actif** sur la valeur source. Tant que la
+slice existe, le propriétaire ne peut pas modifier ni détruire la valeur —
+le compilateur l'interdit statiquement.
+
+```rust
+fn main() {
+    let mut notes = vec![15, 12, 18, 9, 14];
+    let top: &[i32] = &notes[0..3];   // emprunte notes en lecture
+
+    // notes.sort();   // ERREUR : notes est emprunté en lecture par top
+                       // sort() requiert &mut notes
+    println!("Top 3 : {:?}", top);   // ok
+}   // top expire ici — notes est à nouveau disponible
+```
+
+En C, l'équivalent compilait sans avertissement et le pointeur devenait fou
+dès que le tableau était réalloué ou modifié. Rust détecte le problème
+statiquement, à la compilation.
+
+:::info[`&str` vs `String`]
+Rust distingue deux types de chaînes :
+
+| Type | Nature | Allocation |
+|---|---|---|
+| `String` | Chaîne possédée, modifiable | Tas |
+| `&str` | Slice empruntée, lecture seule | Pointe vers `String`, littéral ou autre |
+
+Les fonctions qui n'ont besoin que de *lire* une chaîne acceptent `&str` :
+elles fonctionnent aussi bien avec une `&String` (Rust coerce automatiquement)
+qu'avec un littéral `"bonjour"` stocké dans la zone statique.
+:::
+
 ## Éviter les références folles
 
 En C, retourner un pointeur vers une variable locale est un bogue classique.
@@ -217,33 +257,8 @@ fn correct() -> String {
 
 Lorsque plusieurs références ont des durées de vie différentes, le compilateur
 doit vérifier qu'aucune référence ne survit à l'objet qu'elle désigne. Dans
-les cas simples, Rust infère les lifetimes automatiquement (*elision*). Dans
+les cas simples, Rust infère les lifetimes automatiquement. Dans
 les cas ambigus, le programmeur doit les annoter explicitement.
-
-```rust
-/* Sans annotation, le compilateur ne sait pas quelle lifetime
-   associer à la valeur de retour */
-fn longest<'a>(x: &'a String, y: &'a String) -> &'a String {
-    if x.len() > y.len() { x } else { y }
-}
-```
-
-L'annotation `'a` indique que la référence retournée a une durée de vie au
-plus égale au minimum des durées de vie de `x` et `y`. Cela permet au
-compilateur de vérifier que la référence retournée ne survit pas à ses sources.
-
-```rust
-fn main() {
-    let s1 = String::from("long string");
-    let result;
-    {
-        let s2 = String::from("xy");
-        result = longest(&s1, &s2);
-        println!("{}", result);   // ok — result utilisé avant la fin de s2
-    }
-    // println!("{}", result);   // ERREUR : s2 est désalloué, result serait fou
-}
-```
 
 :::info[Les lifetimes ne sont pas une nouveauté conceptuelle]
 Les lifetimes existent implicitement dans tout programme C — le compilateur C
@@ -255,23 +270,210 @@ La difficulté n'est pas artificielle : le même problème existe en C, mais le
 compilateur Rust aide là où C produit des core dumps.
 :::
 
-## Contrôle de la mutabilité
+### Ce que `'a` signifie réellement
 
-L'ownership contrôle aussi les **mutations** pour éviter les bogues d'alias :
+Une annotation de lifetime comme `'a` ne désigne pas une durée de vie fixe et
+prédéterminée. C'est une **variable** que le compilateur instancie à chaque
+appel : `'a` sera remplacé par l'**intersection** (le minimum) des durées de
+vie des références concrètes passées à l'appel.
 
 ```rust
-let mut v = Vec::new();
-v.push(1);
-v.push(2);
+// Le compilateur ne sait pas si la valeur retournée provient de x ou de y.
+// Il doit donc garantir que le résultat est valide aussi longtemps que
+// les DEUX sources sont valides — d'où l'annotation commune 'a.
+fn plus_longue<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() >= y.len() { x } else { y }
+}
 
-let ref1 = &v[0];     // référence vers le premier élément
-// v.push(3);         // ERREUR : push peut réallouer le vecteur,
-                      // invalidant ref1 !
-println!("{}", ref1); // ok si push est commenté
+fn main() {
+    let s1 = String::from("longue chaîne");   // lifetime : toute la fonction
+    let resultat;
+    {
+        let s2 = String::from("xy");           // lifetime : bloc intérieur
+        resultat = plus_longue(&s1, &s2);
+        println!("{}", resultat);  // ok — utilisé avant la fin de s2
+    }                              // s2 désalloué ici
+    // println!("{}", resultat);  // ERREUR : s2 n'existe plus,
+                                  // resultat pourrait pointer vers s2
+}
 ```
 
-En C, ce scénario (*iterator invalidation*) provoque des bogues silencieux et
-difficiles à diagnostiquer. Rust le détecte statiquement.
+Dans cet appel, `'a` est instancié avec le *minimum* des durées de vie de `s1`
+et `s2`, c'est-à-dire la durée du bloc intérieur. Le compilateur refuse donc
+d'utiliser `resultat` en dehors de ce bloc.
+
+### Plusieurs paramètres de lifetime distincts
+
+Quand deux paramètres ont des durées de vie **indépendantes** et que la valeur
+de retour ne dépend que de l'un d'eux, on peut utiliser deux variables
+distinctes `'a` et `'b` :
+
+```rust
+// Le résultat provient toujours de x — sa lifetime est 'a,
+// indépendante de 'b (la lifetime de y).
+fn premier<'a, 'b>(x: &'a str, _y: &'b str) -> &'a str {
+    x
+}
+```
+
+Par contre, dès que la valeur de retour **peut provenir de l'un ou l'autre**
+des paramètres selon une condition connue seulement à l'exécution, le
+compilateur exige que les deux lifetimes soient **unifiées** : il ne peut pas
+savoir à l'avance laquelle sera effectivement retournée, il doit donc
+garantir que les deux sources sont valides au moins aussi longtemps que le
+résultat.
+
+### Élision des lifetimes
+
+Rust applique des **règles d'élision** qui permettent d'omettre les annotations
+dans les cas les plus courants. Par exemple, une fonction à un seul paramètre
+de référence n'a pas besoin d'annotation :
+
+```rust
+fn extraire<'a>(s: &'a str) -> &'a str { /* … */ }   // explicite
+fn extraire(s: &str)        -> &str    { /* … */ }   // équivalent avec élision
+```
+
+Les deux signatures sont strictement équivalentes. Les règles d'élision sont :
+
+1. Chaque paramètre de référence reçoit une lifetime distincte.
+2. S'il n'y a qu'**un seul** paramètre de référence en entrée, sa lifetime
+   est appliquée à toutes les références en sortie.
+3. Si l'un des paramètres est `&self` ou `&mut self`, la lifetime de `self`
+   est appliquée aux références en sortie.
+
+Quand aucune règle ne s'applique (plusieurs paramètres de référence, pas de
+`self`), l'annotation est **obligatoire**.
+
+## Références dans les structures
+
+Lorsqu'une structure contient une référence (plutôt que de posséder la valeur),
+le compilateur doit savoir combien de temps la référence est valide. Sans
+annotation, il ne peut pas vérifier que la structure ne survit pas à l'objet
+qu'elle référence.
+
+```rust
+// ERREUR : lifetime manquante — le compilateur refuse
+struct Segment {
+    donnees: &str,
+}
+```
+
+La solution consiste à **paramétrer la structure par une lifetime** `'a`,
+qui exprime que l'instance ne peut pas survivre à la valeur empruntée :
+
+```rust
+struct Segment<'a> {
+    donnees: &'a str,
+}
+
+fn main() {
+    let texte = String::from("rust est sûr");
+    let seg = Segment { donnees: &texte[0..4] };  // seg emprunte texte
+    println!("{}", seg.donnees);                  // "rust"
+}   // seg désalloué avant texte — ordre correct
+```
+
+Tenter de stocker `seg` dans une portée plus large que `texte` est refusé à
+la compilation. L'alternative est de faire en sorte que la structure
+**possède** la donnée (avec `String` plutôt que `&str`), ce qui évite les
+annotations mais implique une copie de la valeur.
+
+:::tip[Quand utiliser des références dans une structure ?]
+Favoriser la possession (`String`, `Vec<T>`) pour les structures à longue
+durée de vie. Les références conviennent aux structures éphémères (vues,
+itérateurs) dont la durée de vie est clairement délimitée.
+:::
+
+## `Box<T>` — allocation sur le tas et types récursifs
+
+`Box<T>` est le type fondamental pour allouer une valeur **sur le tas** en
+Rust. C'est un pointeur unique, propriétaire de la valeur pointée. Quand le
+`Box` sort de portée, la valeur sur le tas est automatiquement désallouée —
+aucun `free` explicite.
+
+```rust
+fn main() {
+    let b: Box<i32> = Box::new(42);   // 42 est alloué sur le tas
+    println!("{}", *b);               // déréférencement : 42
+}   // b sort de portée : la mémoire est libérée ici
+```
+
+Contrairement à un `malloc` en C, `Box::new` ne peut pas retourner un
+pointeur nul et la taille allouée est toujours exactement `sizeof(T)`.
+
+### Types récursifs
+
+La principale utilisation de `Box` en pratique est de permettre la définition
+de **types récursifs** — des types dont la taille dépend d'eux-mêmes.
+
+Considérons un arbre binaire d'entiers. La définition naïve est invalide :
+
+```rust
+// ERREUR : la taille d'Arbre est infinie —
+// un Noeud contient deux Arbre, qui contiennent chacun deux Arbre…
+enum Arbre {
+    Feuille(i32),
+    Noeud(Arbre, Arbre),
+}
+```
+
+Le compilateur doit connaître la taille d'`Arbre` à la compilation pour
+réserver l'espace sur la pile — mais cette taille est infinie.
+
+Avec `Box<Arbre>`, chaque branche est un **pointeur** vers un arbre sur le
+tas. La taille d'un pointeur est fixe (8 octets sur 64 bits), ce qui brise
+la récursion infinie :
+
+```rust
+// CORRECT : Box<Arbre> a une taille fixe (un pointeur)
+enum Arbre {
+    Feuille(i32),
+    Noeud(Box<Arbre>, Box<Arbre>),
+}
+
+fn main() {
+    //       (5)
+    //      /   \
+    //    (3)   (8)
+    let arbre = Arbre::Noeud(
+        Box::new(Arbre::Feuille(3)),
+        Box::new(Arbre::Feuille(8)),
+    );
+}   // arbre désalloué ici : les Box imbriqués sont libérés récursivement
+```
+
+Representation mémoire :
+
+```
+Pile :
+  arbre = Noeud { gauche: 0x..., droite: 0x... }
+
+Tas :
+  [0x...] = Feuille(3)
+  [0x...] = Feuille(8)
+```
+
+Le même mécanisme s'applique à toute structure de données récursive : listes
+chaînées, arbres n-aires, etc.
+
+## Contrôle de la mutabilité
+
+L'ownership contrôle aussi les **mutations** pour éviter les bogues d'alias.
+Dès qu'une référence immuable est active sur une valeur, toute opération qui
+nécessiterait `&mut` est bloquée par le compilateur :
+
+```rust
+let mut s = String::from("bonjour");
+let debut = &s[0..3];           // emprunt en lecture : "bon"
+
+// s.push_str(" monde");        // ERREUR : s est déjà emprunté en lecture
+                                // push_str requiert &mut s
+println!("{}", debut);          // ok
+```
+
+En C, un pointeur `char*` vers le milieu d'une chaîne réallouée devient
+silencieusement invalide. Rust rend ce scénario impossible par construction.
 
 ## Résumé
 

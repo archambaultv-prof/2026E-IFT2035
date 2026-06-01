@@ -1,0 +1,80 @@
+﻿---
+sidebar_position: 4
+sidebar_label: "Ex. 4 — Algorithme Mark & Sweep"
+description: Tracer manuellement l'exécution de l'algorithme Mark & Sweep et analyser ses propriétés.
+---
+
+# Exercice 4 — Algorithme Mark & Sweep
+
+## Rappel
+
+L'algorithme Mark & Sweep est un algorithme de ramasse-miettes (*garbage
+collection*) qui fonctionne en deux phases :
+
+1. **Marquer (Mark)** : parcourir récursivement tous les objets atteignables
+   depuis les racines (variables globales + pile) et les marquer.
+2. **Balayer (Sweep)** : parcourir tout le tas et libérer les objets non
+   marqués.
+
+Chaque objet possède un bit de marquage (`mark`). Les objets sont soit
+**accessibles** (marqués ✓) soit **inaccessibles** (non marqués ✗).
+
+## Partie A — Trace manuelle
+
+Considérer l'état du tas suivant. Les racines (variables sur la pile) pointent
+vers les objets `A` et `C`. Chaque objet peut pointer vers d'autres objets.
+
+```
+Racines : → A, → C
+
+Objets dans le tas :
+  A  →  B, D
+  B  →  (rien)
+  C  →  E
+  D  →  F
+  E  →  B
+  F  →  (rien)
+  G  →  H
+  H  →  G
+  I  →  (rien)
+```
+
+1. Appliquer la phase **Mark** : lister dans quel ordre les objets sont
+   visités et indiquer lesquels sont marqués à la fin.
+
+2. Appliquer la phase **Sweep** : lister les objets libérés et ceux
+   conservés.
+
+3. Que se passe-t-il avec les objets `G` et `H` qui forment un cycle ?
+   Le Mark & Sweep gère-t-il correctement les cycles ?
+
+## Partie B — Comparaison avec le comptage de références
+
+Reprendre l'exemple de la Partie A.
+
+4. Quel serait le compteur de référence (`refcount`) de chaque objet dans
+   l'état initial ? (Compter le nombre de pointeurs entrants, y compris
+   depuis les racines.)
+
+5. Lors de la suppression des racines (fin du programme ou sortie de portée),
+   quels objets le comptage de références libère-t-il ? Lesquels ne peut-il
+   pas libérer ?
+
+6. Expliquer pourquoi le comptage de références échoue sur les cycles `G→H`
+   et `H→G`.
+
+## Partie C — Analyse des algorithmes
+
+7. Comparer Mark & Sweep et comptage de références sur les critères suivants :
+
+   | Critère | Mark & Sweep | Comptage de références |
+   |---|---|---|
+   | Gestion des cycles | ? | ? |
+   | Moment de la libération | ? | ? |
+   | Coût par opération sur pointeur | ? | ? |
+   | Pauses (*stop-the-world*) | ? | ? |
+   | Complexité d'implémentation | ? | ? |
+
+8. Python utilise le comptage de références comme mécanisme principal **et**
+   ajoute un GC secondaire de type Mark & Sweep. Expliquer pourquoi cette
+   combinaison est nécessaire.
