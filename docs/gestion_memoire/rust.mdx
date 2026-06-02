@@ -22,7 +22,14 @@ Il **permet au programmeur de contrôler explicitement la désallocation**, mais
 **vérifie statiquement** — au moment de la compilation — que ces désallocations
 sont correctes.
 
-:::info[Positionnement de Rust]
+## Documentation disponible
+
+Pour en apprendre plus sur Rust, consultez la [documentation
+officielle](https://www.rust-lang.org/learn) et le [Rust
+Book](https://doc.rust-lang.org/book/).
+
+## Rust et Haskell
+
 Rust est parfois décrit comme un mélange entre C et Haskell :
 
 | Hérité de C | Hérité de Haskell |
@@ -31,13 +38,68 @@ Rust est parfois décrit comme un mélange entre C et Haskell :
 | Gestion mémoire explicite | Types algébriques |
 | Références explicites | Typage statique fort |
 | Performances | Traits (classes de types) |
-:::
 
-## Rust
+### Struct — l'équivalent des types produits
 
-Pour en apprendre plus sur Rust, consultez la [documentation
-officielle](https://www.rust-lang.org/learn) et le [Rust
-Book](https://doc.rust-lang.org/book/).
+En Haskell, un type produit se définit avec `data` et un seul constructeur :
+
+```haskell
+data Point = Point Double Double
+```
+
+En Rust, l'équivalent est une **structure** (`struct`) avec des champs nommés :
+
+```rust
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+fn main() {
+    let p = Point { x: 1.0, y: 2.5 };
+    println!("({}, {})", p.x, p.y);
+}
+```
+
+### Enum — l'équivalent des types somme
+
+En Haskell, un type somme se définit avec plusieurs constructeurs pouvant
+porter des données :
+
+```haskell
+data Forme = Cercle Double | Rectangle Double Double
+
+aire :: Forme -> Double
+aire (Cercle r)      = pi * r * r
+aire (Rectangle l h) = l * h
+```
+
+En Rust, l'équivalent est une **énumération** (`enum`). Comme en Haskell, les
+variantes peuvent porter des données, et l'opérateur `match` joue le rôle du
+filtrage par motif :
+
+```rust
+enum Forme {
+    Cercle(f64),
+    Rectangle(f64, f64),
+}
+
+fn aire(f: &Forme) -> f64 {
+    match f {
+        Forme::Cercle(r)       => std::f64::consts::PI * r * r,
+        Forme::Rectangle(l, h) => l * h,
+    }
+}
+```
+
+La bibliothèque standard de Rust définit deux `enum` fondamentaux qui
+correspondent directement à `Maybe` et `Either` de Haskell :
+
+| Rust | Haskell | Rôle |
+|---|---|---|
+| `Option<T>` | `Maybe a` | Valeur optionnelle (présente ou absente) |
+| `Result<T, E>` | `Either e a` | Succès ou erreur |
+
 
 ## Ownership — la propriété
 
