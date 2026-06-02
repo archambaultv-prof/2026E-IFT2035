@@ -211,7 +211,7 @@ fn main() {
     // notes.sort();   // ERREUR : notes est emprunté en lecture par top
                        // sort() requiert &mut notes
     println!("Top 3 : {:?}", top);   // ok
-}   // top expire ici — notes est à nouveau disponible
+}
 ```
 
 En C, l'équivalent compilait sans avertissement et le pointeur devenait fou
@@ -265,10 +265,16 @@ Les lifetimes existent implicitement dans tout programme C — le compilateur C
 ne les vérifie simplement pas. Le programmeur doit s'assurer manuellement
 qu'un pointeur ne survit pas à l'objet qu'il désigne. Rust rend cette
 contrainte explicite et la vérifie automatiquement.
-
-La difficulté n'est pas artificielle : le même problème existe en C, mais le
-compilateur Rust aide là où C produit des core dumps.
 :::
+
+Quand Rust ne peut pas inférer les lifetimes seul, le programmeur les annote
+avec une **variable de lifetime** dont le nom commence par une apostrophe :
+`'a`, `'b`, etc. Ces variables s'écrivent dans les chevrons génériques et
+précèdent le type pointé dans chaque référence :
+
+```rust
+fn identite<'a>(x: &'a str) -> &'a str { x }
+```
 
 ### Ce que `'a` signifie réellement
 
