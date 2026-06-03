@@ -49,109 +49,170 @@ sont sans condition de course. Mais maintenant, essayons de **transférer** de
 l'argent entre deux comptes :
 
 ```python
+import threading
+import time
+
 def transfert(source, destination, montant):
     if source.retrait(montant):
         # ← État intermédiaire : l'argent a quitté `source` mais n'est pas
         #   encore dans `destination`. Un autre thread peut observer cet état.
+        time.sleep(0.0001)  # Rend la fenêtre d'observation systématique
         destination.depot(montant)
 
 compte_a = Compte(500)
 compte_b = Compte(100)
+INVARIANT = compte_a.get_solde() + compte_b.get_solde()  # 600
+violations = []
+stop = threading.Event()
 
-# Lancer le transfert dans un thread
-t = threading.Thread(target=transfert, args=(compte_a, compte_b, 200))
-t.start()
+def faire_transferts():
+    """Thread qui effectue des transferts en boucle"""
+    while not stop.is_set():
+        transfert(compte_a, compte_b, 50)
+        transfert(compte_b, compte_a, 50)
 
-# Pendant ce temps, on pourrait lire les soldes dans un autre thread
-# avec comme valeurs intermédiaires : compte_a = 300, compte_b = 100
-# ce qui viole l'invariant global (solde_a + solde_b = 600)
-t.join()
+nb_observations = 0
+violations = []
+
+def verifier_invariant():
+    """Thread qui vérifie que solde_a + solde_b == 600 en permanence"""
+    global nb_observations
+    while not stop.is_set():
+        total = compte_a.get_solde() + compte_b.get_solde()
+        nb_observations += 1
+        if total != INVARIANT:
+            violations.append(total)
+
+t_transfert = threading.Thread(target=faire_transferts)
+t_verification = threading.Thread(target=verifier_invariant)
+t_transfert.start()
+t_verification.start()
+
+time.sleep(0.5)
+stop.set()
+t_transfert.join()
+t_verification.join()
+
+if violations:
+    pourcentage = len(violations) / nb_observations * 100
+    print(f"❌ {len(violations)} violation(s) sur {nb_observations} observations ({pourcentage:.1f}%)")
+    print(f"   Exemple : total observé = {violations[0]} au lieu de {INVARIANT}")
+else:
+    print(f"✅ Aucune violation sur {nb_observations} observations (relancez le programme)")
 ```
 
-Chaque opération (`retrait`, `depot`) est correcte individuellement, mais leur
-composition ne l'est pas. Il n'y a pas de course sur les variables, pourtant
-l'**invariant global** (solde_a + solde_b = 600) peut être violé temporairement.
+Chaque opération (`retrait`, `depot`) est correcte individuellement — aucune
+condition de course sur les variables — mais leur composition ne l'est pas.
+Le thread de vérification observe régulièrement un total de 550 au lieu de 600 :
+l'argent a quitté `compte_a` mais n'est pas encore arrivé dans `compte_b`.
+L'**invariant global** (solde_a + solde_b = 600) est violé temporairement.
 
 ## La composition est difficile
 
-### Solution naïve : un verrou global
+### Tentative 1 : un verrou global autour des appels de méthodes
 
-Une solution est d'utiliser un verrou englobant les deux opérations :
+L'idée naturelle est d'entourer les deux appels d'un verrou externe :
 
 ```python
 transfert_lock = threading.Lock()
 
-def transfert_atomique(source, destination, montant):
+def transfert(source, destination, montant):
     with transfert_lock:
-        # Les deux opérations forment maintenant un bloc atomique
-        solde_source = source.get_solde()
-        if solde_source >= montant:
-            # On accède directement aux attributs pour éviter le double verrou
+        if source.retrait(montant):
+            destination.depot(montant)
+```
+
+Cela fonctionne... à condition que **tout le code** qui accède à ces comptes
+prenne aussi `transfert_lock`. Si `verifier_invariant` appelle `get_solde()`
+sans ce verrou, il peut toujours observer un état intermédiaire. C'est facile
+d'oublier d'acquérir le verrou global dans chaque point d'accès, et rien dans
+le code ne l'impose.
+
+### Tentative 2 : accéder aux attributs internes
+
+Pour contourner le problème de ré-entrance (le verrou interne de `retrait` et
+celui de `depot` sont distincts), on pourrait accéder directement aux attributs :
+
+```python
+def transfert(source, destination, montant):
+    with transfert_lock:
+        if source.solde >= montant:   # accès direct à l'attribut privé
             source.solde -= montant
             destination.solde += montant
 ```
 
-Mais cette solution pose de nouveaux problèmes :
+Cela fonctionne, mais **brise l'encapsulation** : la fonction `transfert` doit
+connaître les détails internes de `Compte`. Si l'implémentation de `Compte`
+change, cette fonction casse.
 
-- Elle **brise l'encapsulation** : on doit accéder aux attributs internes des comptes.
-- Elle introduit un **verrou global partagé** : toutes les opérations de
-  transfert se sérialisent, ce qui limite le parallélisme.
-- **Risque de deadlock** : si `source.retrait` et `destination.depot` acquièrent
-  chacun leur propre verrou, et que le verrou global est aussi pris, l'ordre
-  d'acquisition devient critique.
 
-### Solution avec un verrou partagé entre comptes
+### Solution robuste : ordonner l'acquisition des verrous
+
+La vraie solution qui préserve l'encapsulation utilise deux techniques :
+
+1. **`RLock`** (*reentrant lock*) : un thread peut acquérir le même verrou
+   plusieurs fois sans se bloquer lui-même. Cela permet d'appeler `retrait` et
+   `depot` de l'extérieur pendant qu'on tient déjà leur verrou.
+2. **Ordre canonique d'acquisition** : toujours acquérir les verrous dans le
+   même ordre (par exemple, par identifiant croissant) pour éviter les
+   [deadlocks](./race_conditions_lock.mdx).
 
 ```python
 import threading
 
-# Un seul verrou partagé entre tous les comptes d'un même « livre de comptes »
-class LivreDeComptes:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._comptes = {}
+class Compte:
+    _next_id = 0
 
-    def creer_compte(self, nom, solde_initial):
-        with self._lock:
-            self._comptes[nom] = solde_initial
+    def __init__(self, solde_initial):
+        self.id = Compte._next_id
+        Compte._next_id += 1
+        self.solde = solde_initial
+        self._lock = threading.RLock()  # RLock : ré-entrance autorisée
 
-    def depot(self, nom, montant):
+    def depot(self, montant):
         with self._lock:
-            self._comptes[nom] += montant
+            self.solde += montant
 
-    def retrait(self, nom, montant):
+    def retrait(self, montant):
         with self._lock:
-            if self._comptes[nom] >= montant:
-                self._comptes[nom] -= montant
+            if self.solde >= montant:
+                self.solde -= montant
                 return True
             return False
 
-    def transfert(self, source, destination, montant):
-        # Atomique : les deux comptes sont modifiés sous le même verrou
+    def get_solde(self):
         with self._lock:
-            if self._comptes[source] >= montant:
-                self._comptes[source] -= montant
-                self._comptes[destination] += montant
+            return self.solde
+
+def transfert(source, destination, montant):
+    # Acquérir les deux verrous dans un ordre fixe pour éviter les deadlocks :
+    # si deux threads font transfert(A→B) et transfert(B→A) en même temps,
+    # les deux acquièrent d'abord le verrou du compte avec le plus petit id,
+    # ce qui casse la symétrie qui causerait un deadlock.
+    premier, second = sorted([source, destination], key=lambda c: c.id)
+    with premier._lock:
+        with second._lock:
+            # Les deux comptes sont verrouillés simultanément.
+            # RLock permet à retrait() et depot() d'acquérir _lock à nouveau.
+            if source.retrait(montant):
+                destination.depot(montant)
                 return True
             return False
-
-    def solde_total(self):
-        with self._lock:
-            return sum(self._comptes.values())
-
-livre = LivreDeComptes()
-livre.creer_compte("Alice", 500)
-livre.creer_compte("Bob", 100)
-
-print("Avant:", livre.solde_total())  # 600
-livre.transfert("Alice", "Bob", 200)
-print("Après:", livre.solde_total())  # toujours 600
 ```
 
-Cette version est correcte : le transfert est atomique parce que les deux
-modifications se font sous le **même verrou**. Mais elle a un coût : toutes les
-opérations sur tous les comptes sont sérialisées par un seul verrou, même si
-elles concernent des comptes distincts.
+Cette approche est correcte et préserve l'encapsulation, mais elle expose
+`_lock` à la fonction `transfert` (qui doit connaître l'existence du verrou
+interne). En pratique, `transfert` serait une méthode de la même couche
+d'abstraction que `Compte`.
+
+:::note
+Dans un vrai système de production gérant des données financières, on
+n'utilise généralement pas des verrous manuels : on délègue à une **base de
+données** qui offre des transactions ACID. C'est l'approche la plus fiable,
+car le moteur de base de données gère lui-même l'atomicité, la cohérence et
+l'isolation.
+:::
+
 
 ## Le vrai défi : granularité
 
@@ -178,12 +239,4 @@ avoir à spécifier manuellement quels verrous prendre. Si deux transactions
 entrent en conflit, l'une d'elles est automatiquement annulée et relancée
 (*rollback*).
 
-
-Des exemples Haskell seront ajoutés dans une prochaine version de ce cours.
-
-:::note
-Python ne dispose pas d'une implémentation STM en production. Les alternatives
-sont : verrous explicites (comme ci-dessus), `multiprocessing` avec passage de
-messages (chaque processus gère son propre état), ou des bibliothèques tierces
-pour la concurrence transactionnelle.
-:::
+C'est le sujet de la prochaine section.

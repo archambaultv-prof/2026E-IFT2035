@@ -267,8 +267,12 @@ print("Traitement terminé malgré les erreurs")
 
 ### Vérification de l'état sans lever d'exception
 
-Vous pouvez également vérifier l'état d'un `Future` sans risquer de lever une
-exception :
+Pour savoir si un `Future` a terminé sans risquer de lever une exception, vous
+pouvez utiliser `future.done()`. Toutefois, `future.done()`
+indique uniquement si le `Future` est **terminé** — que ce soit avec succès ou
+avec une exception. Pour inspecter le résultat sans risquer de lever
+l'exception, utilisez `future.exception()` : elle retourne l'exception si elle
+s'est produite, ou `None` sinon.
 
 ```python
 import concurrent.futures
@@ -291,25 +295,17 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
     # Attendre que les tâches se terminent
     time.sleep(2)
     
-    # Vérifier l'état sans lever d'exception
+    # done() est True dans les deux cas : succès ou exception
     print(f"Future normal terminé: {future_normal.done()}")
     print(f"Future erreur terminé: {future_erreur.done()}")
     
-    # Pour le future normal
-    if future_normal.done():
-        try:
-            resultat = future_normal.result()
-            print(f"✅ Résultat normal: {resultat}")
-        except Exception as e:
-            print(f"❌ Erreur inattendue: {e}")
-    
-    # Pour le future avec erreur
-    if future_erreur.done():
-        try:
-            resultat = future_erreur.result()  # Cette ligne lèvera l'exception
-            print(f"✅ Résultat erreur: {resultat}")
-        except RuntimeError as e:
-            print(f"❌ Erreur attendue capturée: {e}")
+    # exception() retourne l'exception ou None — sans la lever
+    for future in (future_normal, future_erreur):
+        exc = future.exception()
+        if exc is None:
+            print(f"✅ Succès: {future.result()}")  # sûr : on sait qu'il n'y a pas d'exception
+        else:
+            print(f"❌ Erreur (sans la lever): {exc}")
 ```
 
 ## Paramètres de configuration

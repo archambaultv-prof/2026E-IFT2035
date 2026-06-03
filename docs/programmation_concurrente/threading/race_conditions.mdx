@@ -202,8 +202,9 @@ Temps | Thread A          | Thread B          | Valeur compteur
 
 ## Conditions pour être sans course
 
-Pour qu'un programme soit **sans condition de course**, trois règles
-suffisent :
+Pour qu'un programme soit **sans condition de course**, il suffit qu'**une
+seule** des trois règles suivantes soit respectée pour chaque variable
+partagée :
 
 1. **Variables non partagées** : les variables locales à un seul thread ne
    peuvent jamais être la source d'une course.

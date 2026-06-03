@@ -1,0 +1,406 @@
+---
+sidebar_label: STM en Haskell
+sidebar_position: 10
+description: Mémoire transactionnelle logicielle (STM) en Haskell — une solution élégante aux problèmes d'atomicité
+---
+
+# Mémoire transactionnelle logicielle (STM) en Haskell
+
+Dans la section sur l'[atomicité](atomicite.mdx), nous avons vu qu'il est
+difficile de composer des opérations concurrentes de façon correcte avec des
+verrous explicites. Haskell propose une solution radicalement différente : la
+**mémoire transactionnelle logicielle** (*Software Transactional Memory*, STM).
+
+## Actions IO
+
+Haskell est un langage **pur** : une fonction ne peut pas avoir d'effets de
+bord (modifier une variable, afficher à l'écran, etc.). Pour exprimer des
+effets, Haskell utilise le type `IO`. Une valeur de type `IO a` représente une
+**action** qui, quand elle est exécutée, produit une valeur de type `a` et peut
+avoir des effets.
+
+```haskell
+-- putStrLn prend une chaîne et retourne une action IO qui n'a pas de résultat
+putStrLn :: String -> IO ()
+
+-- readLn lit une ligne et retourne une action IO produisant un Int
+readLn :: IO Int
+```
+
+## La notation do
+
+Pour enchaîner des actions `IO`, Haskell utilise la notation `do`. C'est
+l'équivalent d'une séquence d'instructions impératives :
+
+```haskell
+-- Équivalent Python :
+-- print("Quel est votre nom ?")
+-- nom = input()
+-- print("Bonjour, " + nom)
+
+main :: IO ()
+main = do
+    putStrLn "Quel est votre nom ?"
+    nom <- getLine          -- <- récupère le résultat de l'action
+    putStrLn ("Bonjour, " ++ nom)
+```
+
+- `<-` est l'équivalent de `=` pour récupérer le résultat d'une action `IO`.
+- `let` (sans `in`) dans un bloc `do` lie une valeur pure (sans effets).
+
+```haskell
+main :: IO ()
+main = do
+    let x = 2 + 2      -- calcul pur, pas d'action IO
+    print x             -- affiche 4
+```
+
+## forkIO — créer un thread
+
+La fonction `forkIO` crée un nouveau thread qui exécute une action `IO` :
+
+```haskell
+import Control.Concurrent (forkIO, threadDelay)
+
+main :: IO ()
+main = do
+    forkIO $ do
+        threadDelay 1000000   -- attendre 1 seconde (en microsecondes)
+        putStrLn "Thread secondaire"
+    putStrLn "Thread principal"
+    threadDelay 2000000       -- attendre 2 secondes pour que le thread secondaire ait le temps de s'exécuter
+```
+
+En Haskell, quand le thread principal se termine, le programme s'arrête
+immédiatement — même si des threads secondaires sont encore en cours
+d'exécution. Sans le `threadDelay` final, le programme se terminerait avant
+que le thread secondaire n'ait le temps d'afficher son message.
+
+`threadDelay` prend un nombre de **microsecondes** (1 000 000 = 1 seconde).
+
+---
+
+## Pourquoi STM ?
+
+Revenons au problème du transfert bancaire. En Python, même avec des verrous
+sur chaque méthode, composer `retrait` et `depot` en une opération atomique
+exigeait d'exposer des détails internes ou d'utiliser une hiérarchie précise de
+verrous.
+
+STM propose une approche différente : vous **décrivez** ce que vous voulez
+faire de façon atomique, et le système s'occupe de la synchronisation. Si deux
+threads entrent en conflit, l'un est automatiquement **annulé et relancé**,
+sans deadlock possible.
+
+---
+
+## Les types fondamentaux de STM
+
+STM en Haskell repose sur trois concepts :
+
+| Concept | Type Haskell | Description |
+|---------|--------------|-------------|
+| Variable partagée | `TVar a` | Une variable mutable accessible depuis plusieurs threads |
+| Action transactionnelle | `STM a` | Une action qui s'exécute à l'intérieur d'une transaction |
+| Exécution atomique | `atomically :: STM a -> IO a` | Lance une transaction et la rend atomique |
+
+### TVar — variable transactionnelle
+
+Une `TVar a` est une variable mutable de type `a` qui ne peut être lue et
+modifiée qu'à l'intérieur d'une transaction STM.
+
+```haskell
+import Control.Concurrent.STM
+
+-- Créer une TVar contenant l'entier 0
+creerCompteur :: IO (TVar Int)
+creerCompteur = newTVarIO 0
+--              ^^^^^^^^^ crée une TVar dans IO (hors transaction)
+```
+
+Pour lire et écrire une `TVar`, on utilise les fonctions suivantes **à
+l'intérieur d'un bloc STM** :
+
+```haskell
+readTVar  :: TVar a -> STM a        -- lire la valeur
+writeTVar :: TVar a -> a -> STM ()  -- écrire une nouvelle valeur
+modifyTVar :: TVar a -> (a -> a) -> STM ()  -- modifier avec une fonction
+```
+
+### atomically — rendre une transaction atomique
+
+`atomically` prend une action `STM` et l'exécute comme une transaction atomique
+dans `IO` :
+
+```haskell
+atomically :: STM a -> IO a
+```
+
+Tout ce qui se passe dans `atomically` est :
+- **Atomique** : vu en une seule fois par les autres threads
+- **Cohérent** : les invariants sont maintenus
+- **Isolé** : les effets ne sont visibles qu'après la validation (*commit*)
+
+---
+
+## Premier exemple : un compteur
+
+Voici l'équivalent Haskell/STM du compteur partagé, sans condition de course
+et sans verrou explicite :
+
+```haskell
+import Control.Concurrent       (forkIO, threadDelay)
+import Control.Concurrent.STM   (TVar, newTVarIO, readTVar, modifyTVar, atomically)
+import Control.Monad            (replicateM_)
+
+-- Incrémenter le compteur nb_fois fois
+incrementer :: TVar Int -> Int -> IO ()
+incrementer compteur nb_fois =
+    replicateM_ nb_fois $           -- répéter nb_fois fois
+        atomically $                -- chaque incrément est atomique
+            modifyTVar compteur (+1)
+
+main :: IO ()
+main = do
+    compteur <- newTVarIO 0         -- créer le compteur à 0
+
+    let nb_iterations = 10000
+        nb_threads    = 4
+
+    -- Lancer nb_threads threads
+    threads <- mapM (\_ -> forkIO (incrementer compteur nb_iterations))
+                    [1..nb_threads]
+
+    threadDelay 2000000             -- attendre 2 secondes
+
+    valeur_finale <- atomically (readTVar compteur)
+    let attendu = nb_threads * nb_iterations
+    putStrLn $ "Attendu : " ++ show attendu
+    putStrLn $ "Obtenu  : " ++ show valeur_finale
+    if valeur_finale == attendu
+        then putStrLn "✅ Résultat correct !"
+        else putStrLn "❌ Erreur !"
+```
+
+Pas de `Lock`, pas de `with`, pas de risque d'oublier un verrou. Chaque appel
+à `atomically` garantit que l'incrément est atomique.
+
+:::note[Comparaison avec Python]
+```python
+# Python — verrou explicite requis
+lock = threading.Lock()
+def incrementer():
+    with lock:
+        compteur[0] += 1
+```
+```haskell
+-- Haskell STM — atomicité déclarative
+incrementer :: TVar Int -> STM ()
+incrementer compteur = modifyTVar compteur (+1)
+```
+En Haskell, le type `STM ()` **force** l'appelant à envelopper l'appel dans
+`atomically`. Oublier `atomically` est une erreur de compilation, pas un bug
+silencieux.
+:::
+
+---
+
+## Composer des opérations STM
+
+C'est ici que STM brille vraiment. Les actions `STM` se **composent** avec la
+notation `do`, exactement comme les actions `IO` :
+
+```haskell
+-- Une action STM qui en contient deux — atomique dans son ensemble
+transfert :: TVar Int -> TVar Int -> Int -> STM Bool
+transfert source destination montant = do
+    solde_source <- readTVar source
+    if solde_source < montant
+        then return False          -- pas assez d'argent, annuler
+        else do
+            writeTVar source      (solde_source - montant)
+            writeTVar destination =<< fmap (+montant) (readTVar destination)
+            return True
+```
+
+Ou plus lisiblement avec `modifyTVar` :
+
+```haskell
+transfert :: TVar Int -> TVar Int -> Int -> STM Bool
+transfert source destination montant = do
+    solde_source <- readTVar source
+    if solde_source < montant
+        then return False
+        else do
+            modifyTVar source      (subtract montant)
+            modifyTVar destination (+montant)
+            return True
+```
+
+Pour l'exécuter :
+
+```haskell
+ok <- atomically (transfert compte_a compte_b 200)
+```
+
+Les deux `modifyTVar` s'exécutent **atomiquement** : aucun thread ne peut
+observer un état où l'argent a quitté `source` sans être arrivé dans
+`destination`. Le problème de la section précédente est résolu par
+construction.
+
+---
+
+## Exemple complet : transfert bancaire
+
+Voici le programme complet qui démontre que l'invariant est toujours respecté :
+
+```haskell
+import Control.Concurrent       (forkIO, threadDelay)
+import Control.Concurrent.STM
+import Control.Monad            (forever, when)
+import Data.IORef               (IORef, newIORef, modifyIORef, readIORef)
+
+-- Transfert atomique entre deux TVar
+transfert :: TVar Int -> TVar Int -> Int -> STM Bool
+transfert source destination montant = do
+    s <- readTVar source
+    if s < montant
+        then return False
+        else do
+            modifyTVar source      (subtract montant)
+            modifyTVar destination (+montant)
+            return True
+
+main :: IO ()
+main = do
+    compte_a <- newTVarIO 500
+    compte_b <- newTVarIO 100
+    let invariant = 600
+
+    violations <- newIORef (0 :: Int)   -- compteur de violations
+    observations <- newIORef (0 :: Int) -- compteur total d'observations
+
+    -- Thread 1 : faire des transferts en boucle
+    forkIO $ forever $ do
+        atomically $ transfert compte_a compte_b 50
+        atomically $ transfert compte_b compte_a 50
+
+    -- Thread 2 : vérifier l'invariant en permanence
+    forkIO $ forever $ do
+        total <- atomically $ do
+            a <- readTVar compte_a
+            b <- readTVar compte_b
+            return (a + b)
+        modifyIORef observations (+1)
+        when (total /= invariant) $
+            modifyIORef violations (+1)
+
+    -- Laisser tourner 1 seconde
+    threadDelay 1000000
+
+    v  <- readIORef violations
+    n  <- readIORef observations
+    let pct = fromIntegral v / fromIntegral n * 100 :: Double
+    putStrLn $ "Observations : " ++ show n
+    putStrLn $ "Violations   : " ++ show v
+                ++ " (" ++ show (round pct :: Int) ++ "%)"
+    if v == 0
+        then putStrLn "✅ Invariant toujours respecté"
+        else putStrLn "❌ Invariant violé !"
+```
+
+Notez que la lecture de l'invariant est elle aussi dans un `atomically` :
+
+```haskell
+total <- atomically $ do
+    a <- readTVar compte_a
+    b <- readTVar compte_b
+    return (a + b)
+```
+
+Les deux lectures forment une transaction atomique : on ne peut pas lire `a`
+après le débit et `b` avant le crédit. C'est impossible avec des verrous par
+compte en Python sans coordination supplémentaire.
+
+---
+
+## retry — attendre une condition
+
+STM fournit aussi `retry :: STM a`, qui **annule la transaction en cours et la
+relance** dès qu'une des `TVar` lues a changé. Cela permet d'exprimer une
+attente bloquante sans boucle active (*busy waiting*).
+
+### Exemple : retrait bloquant
+
+```haskell
+-- Attend que le solde soit suffisant avant de débiter
+retrait_bloquant :: TVar Int -> Int -> STM ()
+retrait_bloquant compte montant = do
+    solde <- readTVar compte
+    if solde < montant
+        then retry          -- pas assez d'argent : attendre et réessayer
+        else writeTVar compte (solde - montant)
+```
+
+Quand `retry` est exécuté :
+1. La transaction est annulée (aucun effet sur les `TVar`).
+2. Le thread est **suspendu** jusqu'à ce qu'une des `TVar` lues change.
+3. La transaction est relancée automatiquement.
+
+C'est l'équivalent d'une variable condition (`threading.Condition` en Python),
+mais sans avoir à gérer explicitement `wait()` et `notify()`.
+
+:::note[Comparaison avec Python]
+```python
+# Python — condition variable explicite
+with condition:
+    while compte.solde < montant:
+        condition.wait()     # attendre une notification
+    compte.solde -= montant
+```
+```haskell
+-- Haskell STM — retry implicite
+retrait_bloquant compte montant = do
+    solde <- readTVar compte
+    if solde < montant then retry
+    else writeTVar compte (solde - montant)
+```
+:::
+
+---
+
+## orElse — choisir entre deux transactions
+
+`orElse :: STM a -> STM a -> STM a` essaie la première transaction. Si elle
+appelle `retry`, elle essaie la seconde. Si les deux appellent `retry`, le
+thread attend que l'une des `TVar` concernées change.
+
+```haskell
+import Control.Concurrent.STM (orElse)
+
+-- Retirer depuis `principal`, ou depuis `secours` si le premier est insuffisant
+retrait_avec_secours :: TVar Int -> TVar Int -> Int -> STM Bool
+retrait_avec_secours principal secours montant =
+    retrait_bloquant principal montant `orElse` retrait_bloquant secours montant
+```
+
+Cela permet de construire des stratégies complexes de façon **modulaire** :
+chaque morceau est une action `STM` indépendante, et on les compose avec
+`orElse` sans toucher à leur implémentation.
+
+---
+
+## Résumé : STM vs verrous
+
+| | Verrous (Python) | STM (Haskell) |
+|---|---|---|
+| Atomicité sur plusieurs variables | Manuel, sujet aux oublis | Automatique via `atomically` |
+| Composition | Difficile (ordre des verrous) | Triviale (notation `do`) |
+| Attente d'une condition | `Condition.wait()` + `notify()` | `retry` |
+| Deadlock possible | Oui | Non (STM ne verrouille pas à l'avance) |
+| Erreurs silencieuses | Oui (oubli d'un verrou) | Non (erreur de compilation) |
+| Disponible en Python | — | Non (pas d'implémentation STM en production) |
+
+STM ne remplace pas tous les besoins en concurrence, mais pour les données
+partagées mutables avec des invariants à maintenir, c'est l'une des
+abstractions les plus sûres et les plus expressives disponibles.
