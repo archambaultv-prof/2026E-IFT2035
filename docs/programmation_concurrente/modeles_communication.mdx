@@ -1,0 +1,125 @@
+---
+sidebar_label: Modèles de communication
+sidebar_position: 2
+description: Mémoire partagée vs passage de messages, avec exemples Python
+---
+
+# Modèles de communication
+
+Lorsque plusieurs processus ou threads s'exécutent simultanément, ils ont besoin
+de communiquer et de se synchroniser. Il existe deux grands modèles de
+communication, qui représentent deux philosophies fondamentalement différentes
+de la concurrence.
+
+## Mémoire partagée
+
+Dans le modèle à **mémoire partagée**, tous les threads partagent un même espace
+mémoire. Ils peuvent lire et modifier les mêmes variables directement.
+
+- **Communication implicite** : un thread écrit dans une variable, un autre la lit
+- **Synchronisation explicite** : il faut des mécanismes (verrous, sémaphores, etc.)
+  pour coordonner les accès et éviter les conditions de course
+- **Typique** : threads au sein d'un même processus (pthreads en C, Java threads,
+  Python `threading`)
+
+```python
+import threading
+
+# Variable partagée — accessible par tous les threads du processus
+donnees = []
+lock = threading.Lock()
+
+def producteur():
+    for i in range(5):
+        with lock:
+            donnees.append(i)  # Écriture directe dans la mémoire partagée
+
+def consommateur():
+    import time
+    time.sleep(0.05)
+    with lock:
+        print("Données lues:", donnees)  # Lecture directe de la mémoire partagée
+
+t1 = threading.Thread(target=producteur)
+t2 = threading.Thread(target=consommateur)
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+```
+
+Ici la communication est **implicite** : le producteur n'« envoie » rien
+explicitement — il écrit dans une variable que le consommateur lit. Mais cette
+facilité de communication se paie par la nécessité de synchronisation explicite
+(le `lock`).
+
+## Passage de messages
+
+Dans le modèle de **passage de messages**, chaque processus possède son propre
+espace mémoire privé. La communication se fait uniquement par envoi et réception
+de messages explicites.
+
+- **Communication explicite** : envoi (`put`, `send`) et réception (`get`, `recv`) de messages
+- **Synchronisation souvent implicite** : la réception est généralement bloquante,
+  ce qui synchronise naturellement les processus
+- **Typique** : processus distincts (MPI, Erlang/Elixir, Go channels,
+  Python `multiprocessing` avec `Queue`, sockets réseau)
+
+```python
+from multiprocessing import Process, Queue
+
+def producteur(queue):
+    for i in range(5):
+        queue.put(i)  # Envoi explicite d'un message (les données sont copiées)
+    queue.put(None)   # Sentinelle de fin
+
+def consommateur(queue):
+    while True:
+        item = queue.get()  # Réception bloquante
+        if item is None:
+            break
+        print("Reçu:", item)
+
+if __name__ == "__main__":
+    q = Queue()
+    p1 = Process(target=producteur, args=(q,))
+    p2 = Process(target=consommateur, args=(q,))
+    p1.start()
+    p2.start()
+    p1.join()
+    p2.join()
+```
+
+Contrairement à la mémoire partagée, `queue.put(i)` envoie une **copie** de la
+valeur. Les processus ne partagent rien : modifier `i` dans le producteur après
+l'envoi n'affecte pas ce que le consommateur recevra.
+
+## Comparaison
+
+| Aspect | Mémoire partagée | Passage de messages |
+|--------|-----------------|---------------------|
+| Communication | Implicite (lecture/écriture) | Explicite (send/recv) |
+| Synchronisation | Explicite (verrous, sémaphores) | Souvent implicite |
+| Partage de données | Direct (même adresse mémoire) | Par copie |
+| Risques principaux | Conditions de course | Files saturées, interblocage |
+| Débogage | Difficile (état global) | Plus facile (flux explicite) |
+| Composition | Délicate | Naturelle |
+| Python | `threading` | `multiprocessing`, sockets |
+
+## L'illusion de la mémoire partagée
+
+En pratique, la frontière entre ces deux modèles n'est pas toujours nette :
+
+- Les **caches** des processeurs peuvent donner l'impression d'une mémoire
+  partagée cohérente alors que chaque cœur a sa propre vue locale. C'est le
+  matériel (protocoles de cohérence de cache) qui maintient l'illusion — au
+  prix d'une certaine latence et de règles complexes d'ordonnancement mémoire.
+- Des systèmes comme la **mémoire partagée distribuée** (DSM) donnent
+  l'illusion de mémoire partagée sur des machines reliées par un réseau.
+
+:::note
+En Python, `multiprocessing` utilise du passage de messages (`Queue`, `Pipe`)
+par défaut, mais offre aussi de la mémoire partagée explicite via `Value` et
+`Array`. Le module `threading` utilise toujours la mémoire partagée, car les
+threads d'un même processus partagent le même espace d'adressage.
+:::

@@ -151,7 +151,7 @@ def demonstration_condition_de_course():
     resultat_attendu = nb_threads * nb_iterations
     
     # Analyser les résultats
-    print(f"\n=== Résultats ===")
+    print(f"=== Résultats ===")
     print(f"Résultat attendu: {resultat_attendu:,}")
     print(f"Résultat obtenu:  {compteur:,}")
     print(f"Différence:       {resultat_attendu - compteur:,}")
@@ -199,3 +199,55 @@ Temps | Thread A          | Thread B          | Valeur compteur
 - Plus de threads = plus de conflits
 - Plus d'opérations = plus d'opportunités de conflit
 - Opérations plus lentes = plus de chances d'entrelacement
+
+## Conditions pour être sans course
+
+Pour qu'un programme soit **sans condition de course**, trois règles
+suffisent :
+
+1. **Variables non partagées** : les variables locales à un seul thread ne
+   peuvent jamais être la source d'une course.
+2. **Variables en lecture seule** : si plusieurs threads ne font que *lire*
+   une variable (sans jamais l'écrire), aucune course n'est possible.
+3. **Accès protégés par un même verrou** : si chaque accès (lecture *et*
+   écriture) à une variable partagée est protégé par le même mutex, une
+   seule thread à la fois peut y accéder.
+
+```python
+import threading
+
+# ✅ Règle 1 — variable locale, jamais partagée
+def calcul_local():
+    total = 0           # variable locale : aucun autre thread ne la voit
+    for i in range(1000):
+        total += i
+    return total
+
+# ✅ Règle 2 — lecture seule d'une constante partagée
+CONSTANTE = (1, 2, 3)  # tuple immuable : tous peuvent le lire sans verrou
+
+def lire_constante():
+    return sum(CONSTANTE)
+
+# ✅ Règle 3 — toujours le même verrou pour la même variable
+compteur = 0
+lock = threading.Lock()
+
+def incrementer():
+    global compteur
+    with lock:          # même lock à chaque accès à `compteur`
+        compteur += 1
+
+def lire_compteur():
+    with lock:          # même lock, même pour la lecture
+        return compteur
+```
+
+:::warning
+Un programme peut être exempt de conditions de course tout en produisant des
+résultats incorrects. L'absence de course garantit uniquement que les accès
+aux données partagées sont ordonnés de manière cohérente — elle ne garantit
+pas que la *logique* du programme est correcte. La notion d'[**atomicité**](atomicite.mdx) va
+plus loin.
+:::
+

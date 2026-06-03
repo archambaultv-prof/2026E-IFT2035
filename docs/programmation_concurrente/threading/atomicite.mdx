@@ -1,0 +1,189 @@
+---
+sidebar_label: Atomicité
+sidebar_position: 9
+description: Concept d'atomicité, composition difficile et transaction logique
+---
+
+# Atomicité
+
+## Qu'est-ce que l'atomicité ?
+
+Une opération est **atomique** si elle s'exécute entièrement ou pas du tout,
+sans qu'aucun autre thread ne puisse observer un état intermédiaire. Du point de
+vue des autres threads, une opération atomique est instantanée.
+
+L'atomicité est une propriété **plus forte** que l'absence de course. On peut
+avoir un programme sans condition de course qui n'est pourtant pas correct,
+parce que plusieurs opérations consécutives ne forment pas un bloc atomique.
+
+## Absence de course ≠ atomicité
+
+Voici un exemple qui l'illustre : un compte bancaire avec ses propres verrous.
+
+```python
+import threading
+
+class Compte:
+    def __init__(self, solde_initial):
+        self.solde = solde_initial
+        self._lock = threading.Lock()
+
+    def depot(self, montant):
+        with self._lock:
+            self.solde += montant
+
+    def retrait(self, montant):
+        with self._lock:
+            if self.solde >= montant:
+                self.solde -= montant
+                return True
+            return False
+
+    def get_solde(self):
+        with self._lock:
+            return self.solde
+```
+
+Chaque méthode est protégée par un verrou : `depot`, `retrait` et `get_solde`
+sont sans condition de course. Mais maintenant, essayons de **transférer** de
+l'argent entre deux comptes :
+
+```python
+def transfert(source, destination, montant):
+    if source.retrait(montant):
+        # ← État intermédiaire : l'argent a quitté `source` mais n'est pas
+        #   encore dans `destination`. Un autre thread peut observer cet état.
+        destination.depot(montant)
+
+compte_a = Compte(500)
+compte_b = Compte(100)
+
+# Lancer le transfert dans un thread
+t = threading.Thread(target=transfert, args=(compte_a, compte_b, 200))
+t.start()
+
+# Pendant ce temps, on pourrait lire les soldes dans un autre thread
+# avec comme valeurs intermédiaires : compte_a = 300, compte_b = 100
+# ce qui viole l'invariant global (solde_a + solde_b = 600)
+t.join()
+```
+
+Chaque opération (`retrait`, `depot`) est correcte individuellement, mais leur
+composition ne l'est pas. Il n'y a pas de course sur les variables, pourtant
+l'**invariant global** (solde_a + solde_b = 600) peut être violé temporairement.
+
+## La composition est difficile
+
+### Solution naïve : un verrou global
+
+Une solution est d'utiliser un verrou englobant les deux opérations :
+
+```python
+transfert_lock = threading.Lock()
+
+def transfert_atomique(source, destination, montant):
+    with transfert_lock:
+        # Les deux opérations forment maintenant un bloc atomique
+        solde_source = source.get_solde()
+        if solde_source >= montant:
+            # On accède directement aux attributs pour éviter le double verrou
+            source.solde -= montant
+            destination.solde += montant
+```
+
+Mais cette solution pose de nouveaux problèmes :
+
+- Elle **brise l'encapsulation** : on doit accéder aux attributs internes des comptes.
+- Elle introduit un **verrou global partagé** : toutes les opérations de
+  transfert se sérialisent, ce qui limite le parallélisme.
+- **Risque de deadlock** : si `source.retrait` et `destination.depot` acquièrent
+  chacun leur propre verrou, et que le verrou global est aussi pris, l'ordre
+  d'acquisition devient critique.
+
+### Solution avec un verrou partagé entre comptes
+
+```python
+import threading
+
+# Un seul verrou partagé entre tous les comptes d'un même « livre de comptes »
+class LivreDeComptes:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._comptes = {}
+
+    def creer_compte(self, nom, solde_initial):
+        with self._lock:
+            self._comptes[nom] = solde_initial
+
+    def depot(self, nom, montant):
+        with self._lock:
+            self._comptes[nom] += montant
+
+    def retrait(self, nom, montant):
+        with self._lock:
+            if self._comptes[nom] >= montant:
+                self._comptes[nom] -= montant
+                return True
+            return False
+
+    def transfert(self, source, destination, montant):
+        # Atomique : les deux comptes sont modifiés sous le même verrou
+        with self._lock:
+            if self._comptes[source] >= montant:
+                self._comptes[source] -= montant
+                self._comptes[destination] += montant
+                return True
+            return False
+
+    def solde_total(self):
+        with self._lock:
+            return sum(self._comptes.values())
+
+livre = LivreDeComptes()
+livre.creer_compte("Alice", 500)
+livre.creer_compte("Bob", 100)
+
+print("Avant:", livre.solde_total())  # 600
+livre.transfert("Alice", "Bob", 200)
+print("Après:", livre.solde_total())  # toujours 600
+```
+
+Cette version est correcte : le transfert est atomique parce que les deux
+modifications se font sous le **même verrou**. Mais elle a un coût : toutes les
+opérations sur tous les comptes sont sérialisées par un seul verrou, même si
+elles concernent des comptes distincts.
+
+## Le vrai défi : granularité
+
+Le problème fondamental est la tension entre deux objectifs :
+
+| Verrou trop **grossier** | Verrou trop **fin** |
+|--------------------------|---------------------|
+| Un seul verrou pour tout | Un verrou par variable |
+| Atomicité facile à obtenir | Composition difficile |
+| Peu de parallélisme | Beaucoup de parallélisme |
+| Performances limitées | Risques de deadlock |
+
+Il n'existe pas de solution universelle en Python avec des verrous. La bonne
+granularité dépend du cas d'usage.
+
+## Et dans d'autres langages ?
+
+Certains langages proposent des mécanismes qui résolvent élégamment ce problème.
+
+La **mémoire transactionnelle logicielle** (STM — *Software Transactional
+Memory*), popularisée par Haskell (module `STM`), permet de définir des
+**transactions** : des blocs de code qui s'exécutent de manière atomique sans
+avoir à spécifier manuellement quels verrous prendre. Si deux transactions
+entrent en conflit, l'une d'elles est automatiquement annulée et relancée
+(*rollback*).
+
+
+Des exemples Haskell seront ajoutés dans une prochaine version de ce cours.
+
+:::note
+Python ne dispose pas d'une implémentation STM en production. Les alternatives
+sont : verrous explicites (comme ci-dessus), `multiprocessing` avec passage de
+messages (chaque processus gère son propre état), ou des bibliothèques tierces
+pour la concurrence transactionnelle.
+:::

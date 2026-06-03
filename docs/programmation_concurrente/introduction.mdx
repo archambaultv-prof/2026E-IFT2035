@@ -12,11 +12,11 @@ mécanismes pour gérer l'exécution simultanée de code, que ce soit via des
 threads (C, Java, Python…), des processus, ou la programmation asynchrone
 (JavaScript, Rust, Python, C#…).
 
-Dans ce cours, nous étudions ces concepts à travers des exemples en Python.
-Des exemples en C et en Haskell seront ajoutés ultérieurement pour illustrer
-comment d'autres langages abordent les mêmes défis. Nous allons voir dans les
-prochaines sections trois paquets principaux de Python pour illustrer ces
-conceptes :
+Dans ce cours, nous étudions ces concepts principalement à travers des exemples
+en Python. Des exemples en C et en Haskell seront également fournis pour
+illustrer comment d'autres langages abordent les mêmes défis. Nous allons voir
+dans les prochaines sections trois paquets principaux de Python pour illustrer
+ces concepts :
 
 - `threading` : pour la gestion des threads
 - `multiprocessing` : pour la gestion des processus
@@ -79,6 +79,42 @@ gantt
     Tâche F    :c2, 3000, 6000
 ```
 
+### Programmation Distribuée
+
+La **programmation distribuée** étend la concurrence à plusieurs machines
+reliées par un réseau. Chaque machine possède sa propre mémoire et les
+processus communiquent par **passage de messages** (sockets, HTTP, RPC, etc.).
+
+Ce cours se concentre sur la concurrence et le parallélisme au sein d'une même
+machine. La programmation distribuée sera évoquée ponctuellement à titre de
+mise en contexte, notamment lorsqu'on aborde les modèles de communication.
+
+## Objectifs et problèmes
+
+La programmation concurrente, parallèle et distribuée poursuit plusieurs
+objectifs, mais introduit aussi de nouveaux problèmes.
+
+### Objectifs
+
+- **Parallélisme** : accélérer l'exécution en exploitant plusieurs processeurs
+- **Concurrence** : gérer plus efficacement certaines ressources (ex. : servir
+  plusieurs clients simultanément sans bloquer sur les entrées/sorties)
+- **Distribution** : faire collaborer plusieurs machines, potentiellement
+  instables, pour accomplir une tâche commune
+- **Génie logiciel** : mieux organiser le code en décomposant un programme en
+  unités d'exécution indépendantes
+
+### Problèmes
+
+L'exécution simultanée soulève trois grandes catégories de difficultés :
+
+- **Partitionnement** : comment décomposer le travail en tâches ou processus
+  indépendants ?
+- **Communication** : comment les tâches échangent-elles les données à traiter ?
+  (mémoire partagée ou passage de messages — voir la page suivante)
+- **Synchronisation** : comment les tâches se coordonnent-elles pour ne pas
+  « se marcher dessus » lorsqu'elles accèdent aux mêmes ressources ?
+
 ## Threads vs Processus vs Asynchrone
 
 Les langages de programmation modernes proposent généralement trois grandes
@@ -106,7 +142,7 @@ CPU-intensives — ce n'est pas une limitation des threads en général.
 Les processus sont idéaux pour les tâches CPU-intensives, car ils peuvent
 s'exécuter en parallèle sur plusieurs cœurs. C'est aussi une solution robuste, car
 chaque processus est isolé des autres, ce qui réduit les risques de corruption de données.
-Par contre la communication entre processus est plus complexe.
+Par contre, la communication entre processus est plus complexe.
 
 
 ### Programmation Asynchrone

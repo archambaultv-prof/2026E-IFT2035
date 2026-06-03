@@ -130,9 +130,119 @@ with condition:
   système d'exploitation peut réveiller le thread pour d'autres raisons
 - La boucle `while` vérifie à nouveau la condition après le réveil
 
-## Pattern Producteur-Consommateur
+## Attente active vs attente passive
 
-Le pattern producteur-consommateur est un des plus utilisés en programmation
+Avant d'explorer le pattern producteur-consommateur, il est important de
+comprendre la différence entre deux grandes stratégies d'attente — un concept
+fondamental de la programmation concurrente qui dépasse largement Python.
+
+### Attente active (*busy waiting*)
+
+L'attente active consiste à vérifier en boucle si une condition est satisfaite.
+Le thread « tourne dans le vide » en consommant du CPU pendant qu'il attend.
+
+Prenons l'exemple d'un compte bancaire : un thread veut effectuer un retrait,
+mais le solde est insuffisant. Avec l'attente active :
+
+```python
+import threading
+import time
+
+solde = 50
+lock = threading.Lock()
+
+def depot_actif(montant):
+    global solde
+    with lock:
+        solde += montant
+        print(f"Dépôt de {montant} → solde = {solde}")
+
+def retrait_actif(montant):
+    """Attente active : boucle jusqu'à ce que le solde soit suffisant."""
+    global solde
+    while True:
+        with lock:
+            if solde >= montant:
+                solde -= montant
+                print(f"Retrait de {montant} → solde = {solde}")
+                return
+        # Le verrou est libéré ici, puis ré-acquis en boucle
+        time.sleep(0.001)  # Pause minimale — mais le CPU travaille pour rien
+
+t1 = threading.Thread(target=retrait_actif, args=(100,))
+t2 = threading.Thread(target=depot_actif, args=(100,))
+t1.start()
+time.sleep(0.05)
+t2.start()
+t1.join(); t2.join()
+```
+
+**Problèmes de l'attente active :**
+- **Gaspillage de CPU** : le thread consomme des ressources processeur sans
+  faire de travail utile.
+- **Difficulté de réglage** : trop courte → CPU saturé ; trop longue → réactivité
+  dégradée.
+
+### Attente passive (*passive waiting*)
+
+L'attente passive permet à un thread de se **suspendre complètement** jusqu'à
+ce qu'un autre thread le réveille via `notify()` ou `notify_all()`. Aucun CPU
+n'est consommé pendant l'attente.
+
+```python
+import threading
+import time
+
+solde = 50
+condition = threading.Condition()
+
+def depot_passif(montant):
+    global solde
+    with condition:
+        solde += montant
+        print(f"Dépôt de {montant} → solde = {solde}")
+        condition.notify_all()  # Réveille tous les threads en attente
+
+def retrait_passif(montant):
+    """Attente passive : le thread se suspend jusqu'à ce que le solde suffise."""
+    global solde
+    with condition:
+        while solde < montant:       # Toujours une boucle while, jamais if
+            print(f"Retrait de {montant} impossible (solde={solde}), attente...")
+            condition.wait()         # Le thread se suspend ici sans consommer de CPU
+        solde -= montant
+        print(f"Retrait de {montant} → solde = {solde}")
+
+t1 = threading.Thread(target=retrait_passif, args=(100,))
+t2 = threading.Thread(target=depot_passif, args=(100,))
+t1.start()
+time.sleep(0.05)
+t2.start()
+t1.join(); t2.join()
+```
+
+**Avantages de l'attente passive :**
+- **Économie de CPU** : le thread suspendu ne consomme aucun cycle processeur.
+- **Réactivité immédiate** : dès qu'un `notify()` est émis, le thread se réveille.
+- **Clarté** : le code exprime directement la condition attendue.
+
+### Comparaison
+
+| Aspect | Attente active | Attente passive (`Condition`) |
+|--------|---------------|-------------------------------|
+| Consommation CPU | Élevée (boucle continue) | Nulle (thread suspendu) |
+| Réactivité | Dépend de la pause | Immédiate au `notify` |
+| Complexité | Simple à écrire | Un peu plus verbeux |
+| Cas d'usage | À éviter en production | Standard |
+
+:::note Moniteur
+L'objet `Condition` de Python implémente le concept de **moniteur** : un
+verrou associé à une ou plusieurs variables de condition. C'est une abstraction
+classique de la programmation concurrente, présente dans de nombreux langages
+(Java `synchronized`/`wait`/`notify`, C `pthread_cond_t`, etc.).
+:::
+
+## Pattern Producteur-Consommateur
 concurrente. Il permet de découpler la production et la consommation de données
 grâce à un buffer intermédiaire.
 
