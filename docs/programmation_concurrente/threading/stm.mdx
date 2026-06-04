@@ -178,8 +178,8 @@ main = do
     putStrLn $ "Attendu : " ++ show attendu
     putStrLn $ "Obtenu  : " ++ show valeur_finale
     if valeur_finale == attendu
-        then putStrLn "✅ Résultat correct !"
-        else putStrLn "❌ Erreur !"
+        then putStrLn "OK: Resultat correct !"
+        else putStrLn "ERREUR: Resultat incorrect !"
 ```
 
 Pas de `Lock`, pas de `with`, pas de risque d'oublier un verrou. Chaque appel
@@ -210,20 +210,6 @@ silencieux.
 C'est ici que STM brille vraiment. Les actions `STM` se **composent** avec la
 notation `do`, exactement comme les actions `IO` :
 
-```haskell
--- Une action STM qui en contient deux — atomique dans son ensemble
-transfert :: TVar Int -> TVar Int -> Int -> STM Bool
-transfert source destination montant = do
-    solde_source <- readTVar source
-    if solde_source < montant
-        then return False          -- pas assez d'argent, annuler
-        else do
-            writeTVar source      (solde_source - montant)
-            writeTVar destination =<< fmap (+montant) (readTVar destination)
-            return True
-```
-
-Ou plus lisiblement avec `modifyTVar` :
 
 ```haskell
 transfert :: TVar Int -> TVar Int -> Int -> STM Bool
@@ -305,8 +291,8 @@ main = do
     putStrLn $ "Violations   : " ++ show v
                 ++ " (" ++ show (round pct :: Int) ++ "%)"
     if v == 0
-        then putStrLn "✅ Invariant toujours respecté"
-        else putStrLn "❌ Invariant violé !"
+        then putStrLn "OK: Invariant toujours respecte"
+        else putStrLn "ERREUR: Invariant viole !"
 ```
 
 Notez que la lecture de l'invariant est elle aussi dans un `atomically` :
@@ -324,79 +310,12 @@ compte en Python sans coordination supplémentaire.
 
 ---
 
-## retry — attendre une condition
-
-STM fournit aussi `retry :: STM a`, qui **annule la transaction en cours et la
-relance** dès qu'une des `TVar` lues a changé. Cela permet d'exprimer une
-attente bloquante sans boucle active (*busy waiting*).
-
-### Exemple : retrait bloquant
-
-```haskell
--- Attend que le solde soit suffisant avant de débiter
-retrait_bloquant :: TVar Int -> Int -> STM ()
-retrait_bloquant compte montant = do
-    solde <- readTVar compte
-    if solde < montant
-        then retry          -- pas assez d'argent : attendre et réessayer
-        else writeTVar compte (solde - montant)
-```
-
-Quand `retry` est exécuté :
-1. La transaction est annulée (aucun effet sur les `TVar`).
-2. Le thread est **suspendu** jusqu'à ce qu'une des `TVar` lues change.
-3. La transaction est relancée automatiquement.
-
-C'est l'équivalent d'une variable condition (`threading.Condition` en Python),
-mais sans avoir à gérer explicitement `wait()` et `notify()`.
-
-:::note[Comparaison avec Python]
-```python
-# Python — condition variable explicite
-with condition:
-    while compte.solde < montant:
-        condition.wait()     # attendre une notification
-    compte.solde -= montant
-```
-```haskell
--- Haskell STM — retry implicite
-retrait_bloquant compte montant = do
-    solde <- readTVar compte
-    if solde < montant then retry
-    else writeTVar compte (solde - montant)
-```
-:::
-
----
-
-## orElse — choisir entre deux transactions
-
-`orElse :: STM a -> STM a -> STM a` essaie la première transaction. Si elle
-appelle `retry`, elle essaie la seconde. Si les deux appellent `retry`, le
-thread attend que l'une des `TVar` concernées change.
-
-```haskell
-import Control.Concurrent.STM (orElse)
-
--- Retirer depuis `principal`, ou depuis `secours` si le premier est insuffisant
-retrait_avec_secours :: TVar Int -> TVar Int -> Int -> STM Bool
-retrait_avec_secours principal secours montant =
-    retrait_bloquant principal montant `orElse` retrait_bloquant secours montant
-```
-
-Cela permet de construire des stratégies complexes de façon **modulaire** :
-chaque morceau est une action `STM` indépendante, et on les compose avec
-`orElse` sans toucher à leur implémentation.
-
----
-
 ## Résumé : STM vs verrous
 
 | | Verrous (Python) | STM (Haskell) |
 |---|---|---|
 | Atomicité sur plusieurs variables | Manuel, sujet aux oublis | Automatique via `atomically` |
 | Composition | Difficile (ordre des verrous) | Triviale (notation `do`) |
-| Attente d'une condition | `Condition.wait()` + `notify()` | `retry` |
 | Deadlock possible | Oui | Non (STM ne verrouille pas à l'avance) |
 | Erreurs silencieuses | Oui (oubli d'un verrou) | Non (erreur de compilation) |
 | Disponible en Python | — | Non (pas d'implémentation STM en production) |
@@ -404,3 +323,105 @@ chaque morceau est une action `STM` indépendante, et on les compose avec
 STM ne remplace pas tous les besoins en concurrence, mais pour les données
 partagées mutables avec des invariants à maintenir, c'est l'une des
 abstractions les plus sûres et les plus expressives disponibles.
+
+---
+
+## Comment STM fonctionne-t-il ?
+
+### Le journal de transaction
+
+Quand un thread entre dans un `atomically`, STM crée un **journal de
+transaction** local au thread. Ce journal enregistre toutes
+les opérations effectuées sur les `TVar` pendant la transaction :
+
+- Chaque `readTVar` note la valeur lue et la version de la `TVar` au moment de
+  la lecture.
+- Chaque `writeTVar` note la nouvelle valeur à écrire — mais **n'écrit rien
+  encore en mémoire partagée**.
+
+
+### La validation (commit)
+
+À la fin du `atomically`, le runtime tente de **valider** la transaction :
+
+1. **Vérification** : Pour chaque `TVar` lue, la version actuelle en mémoire
+   est-elle la même que celle notée dans le journal ? Si un autre thread a
+   modifié une `TVar` lue entre-temps, la transaction est **invalide**.
+2. **Commit** : Si toutes les versions sont intactes, les nouvelles valeurs sont
+   appliquées atomiquement à toutes les `TVar`.
+3. **Rollback** : Si la vérification échoue, le journal est jeté et la
+   transaction est relancée depuis le début.
+
+
+Ce mécanisme s'appelle la **concurrence optimiste** : on suppose qu'il n'y a
+pas de conflit, on travaille en local, et on vérifie seulement à la fin.
+
+### Pourquoi rollback est-il sûr ?
+
+C'est ici qu'intervient la **pureté de Haskell**. Une action de type `STM a`
+ne peut faire **que** des lectures et écritures de `TVar` — c'est garanti par
+le système de types. Elle ne peut pas afficher à l'écran, écrire dans un
+fichier, ou modifier une structure de données en dehors des `TVar`.
+
+Donc si on annule une transaction, il suffit de **jeter le journal** : il n'y a
+aucun autre effet à annuler. C'est ce qui rend le rollback trivial.
+
+---
+
+## STM est-il une librairie ou fait-il partie du compilateur ?
+
+La réponse est : **les deux, à des niveaux différents**.
+
+- **L'API** (`TVar`, `STM`, `atomically`, `retry`, `orElse`) est définie dans
+  le paquet `stm`, qui est une **librairie ordinaire** qu'on importe comme
+  n'importe quelle autre.
+- **Le mécanisme de commit atomique** repose sur des primitives du **runtime de
+  GHC** (le compilateur Haskell). En particulier, la validation et l'écriture
+  atomique de plusieurs `TVar` utilisent des instructions de bas niveau
+  (compare-and-swap) que GHC expose à travers des opérations primaires
+  internes.
+
+En pratique, vous n'avez besoin de connaître que l'API. Mais il est utile de
+savoir que `atomically` n'est pas de la "magie" : c'est une fonction ordinaire
+dont l'implémentation interne utilise des opérations bas niveau du runtime.
+
+---
+
+## Pourrait-on écrire STM pour Python ?
+
+**La mécanique du journal est faisable.** On pourrait créer une classe `TVar`
+en Python, maintenir un journal thread-local, et implémenter un `atomically`
+qui valide et commit.
+
+**Mais le problème fondamental est la pureté.** En Python, rien n'empêche une
+"transaction" de faire des effets de bord non capturés par le journal :
+
+```python
+# Python — rien n'empêche ceci dans une transaction
+def transfert(source, destination, montant):
+    if source.get() >= montant:
+        source.set(source.get() - montant)
+        print("argent débité")   # effet de bord hors journal !
+        ma_liste.append(montant) # modification hors journal !
+        destination.set(destination.get() + montant)
+```
+
+Si cette transaction est annulée et relancée à cause d'un conflit, `print` et
+`ma_liste.append` auront déjà été exécutés. Le rollback ne peut pas les
+défaire. La transaction ne serait donc pas vraiment atomique.
+
+En Haskell, le type `STM a` **interdit** les actions `IO` à l'intérieur. Le
+compilateur refuse ce code :
+
+```haskell
+-- ERREUR DE COMPILATION : putStrLn est IO, pas STM
+transfert_invalide :: TVar Int -> TVar Int -> Int -> STM Bool
+transfert_invalide source destination montant = do
+    putStrLn "argent débité"  -- ← le compilateur rejette cette ligne
+    ...
+```
+
+**Conclusion :** On pourrait écrire une STM partielle pour Python qui fonctionne
+si les transactions n'ont pas d'effets de bord externes, mais le langage ne peut
+pas l'*imposer*. En Haskell, le système de types le garantit statiquement — c'est
+pour cela que STM y est vraiment sûr.
