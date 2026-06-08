@@ -1,0 +1,45 @@
+---
+sidebar_position: 15
+sidebar_label: "Ex. 14 — Renommage alpha"
+description: Renommage de variables locales pour éviter les conflits de noms.
+---
+
+# Exercice 14 — Renommage alpha
+
+Le **renommage alpha** est une technique de transformation de code qui consiste
+à renommer les variables locales d'une fonction pour éviter les conflits de
+noms. Dans les programmes Haskell ci-dessous, renommer toutes les variables
+pour éviter les conflits de noms, en utilisant des noms de variables différents
+de ceux déjà utilisés.
+
+## Programme 1
+
+```haskell
+x = 1
+foo y = x + y
+bar (x, y) = x + y
+resultat = let bar x = x + 3
+               x = 5
+           in foo (bar x)
+```
+
+## Programme 2
+
+```haskell
+f x = x + 1
+g x = f x * x
+resultat = let f x = x * 2
+               y = f 3
+           in g y + f y
+```
+
+## Programme 3
+
+```haskell
+x = 10
+h x y = x - y
+resultat = let x = 2
+               y = let x = 7
+                   in x + 1
+           in h x y
+```
