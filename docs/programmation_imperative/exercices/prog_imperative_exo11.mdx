@@ -1,0 +1,37 @@
+﻿---
+sidebar_position: 11
+sidebar_label: "Ex. 11 — Raisonner sur les effets d'une fonction inconnue"
+description: Raisonner sur les effets d'une fonction inconnue en fonction des règles de portée, de passage d'arguments et d'affectation.
+---
+
+# Exercice 11 — Raisonner sur les effets d'une fonction inconnue
+
+Soit le morceau de code suivant, où `f` est une fonction quelconque que l'on ne
+connaît pas et où le langage utilise une syntaxe de style C :
+
+```c
+{
+    int table[2] = {0, 1};
+    int size = 2;
+    int tmp = 0;
+    f(table, size);
+    ...
+}
+```
+
+On aimerait savoir si certaines conditions sont nécessairement toujours vraies
+après l'appel à `f`. On s'intéresse plus particulièrement aux conditions suivantes :
+
+- `table[0] == 0`
+- `size == 2`
+- `tmp == 0`
+
+Indiquer lesquelles de ces trois conditions sont nécessairement vraies dans chacun
+des cas suivants :
+
+1. Le langage est exactement comme C : portée statique, passage d'arguments
+   par valeur, affectation autorisée.
+2. Le langage est comme C sauf que l'affectation (autre que l'initialisation)
+   est interdite.
+3. Le langage est comme C sauf que les arguments sont passés par référence.
+4. Le langage est comme C mais avec portée dynamique.

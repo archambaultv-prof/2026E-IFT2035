@@ -1,0 +1,44 @@
+﻿---
+sidebar_position: 12
+sidebar_label: "Ex. 12 — Raisonner sur les effets d'une fonction inconnue (2)"
+description: Raisonner sur les effets d'une fonction inconnue en fonction des règles de portée, de passage d'arguments et d'affectation.
+---
+
+# Exercice 12 — Raisonner sur les effets d'une fonction inconnue (2)
+
+Soit le morceau de code suivant, où `f` est une fonction quelconque que l'on ne
+connaît pas (p. ex. définie dans un autre fichier pas encore écrit) et où le langage
+utilise une syntaxe de style C :
+
+```c
+void foo(void (*f)(char*, int)) {
+    int x = 3, y = 2, z = 1;
+    char *s1 = "haskell";
+    char *s2 = strcpy(s1);  /* fait une copie de s1 */
+    char *s3 = s2 + 5;
+    while (--x > 0) {
+        int x = 2 * y;
+        f(s3, y);
+    }
+}
+```
+
+On aimerait savoir (par exemple pour décider de la validité de certaines
+optimisations) si certaines conditions sont nécessairement toujours vraies à la fin de
+la fonction ci-dessus (c.-à-d. quand l'exécution du `while` se termine).
+On s'intéresse plus particulièrement aux 6 conditions suivantes :
+
+- `s2[5] == 'l'`
+- `s2[1] == 'a'`
+- `s1[1] == 'a'`
+- `x == 0`
+- `z == 1`
+- `y == 2`
+
+Dans chacun des cas suivants, indiquer lesquelles de ces 6 conditions sont
+nécessairement vraies et, si non, justifier pourquoi :
+
+1. Le langage est exactement comme C : portée statique, passage d'arguments
+   par valeur, affectation autorisée.
+2. Le langage est comme C sauf que les arguments sont passés par référence.
+3. Le langage est comme C mais avec portée dynamique.
