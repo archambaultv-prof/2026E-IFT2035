@@ -1,0 +1,99 @@
+---
+sidebar_position: 4
+sidebar_label: "Ex. 4 — Ordonnancement coopératif"
+description: Observer la différence entre l'ordonnancement coopératif d'asyncio et l'ordonnancement préemptif des threads.
+---
+
+# Exercice 4 — Ordonnancement coopératif vs préemptif
+
+## Mise en contexte
+
+`asyncio` utilise un modèle d'ordonnancement **coopératif** : une coroutine
+s'exécute jusqu'à ce qu'elle cède *volontairement* le contrôle avec `await`.
+Le système d'exploitation (et donc `threading`) utilise au contraire un
+ordonnancement **préemptif** : le scheduler peut interrompre un thread *à
+tout moment*, même au milieu d'un calcul.
+
+Cette différence est un choix de design fondamental qui affecte à la fois les
+performances et la sûreté du code concurrent.
+
+## Partie 1 — Affamement avec asyncio
+
+Voici un programme qui lance deux tâches concurrentes avec `asyncio.gather`.
+
+```python
+import asyncio
+
+async def calcul_infini():
+    print("calcul_infini: démarrage")
+    compteur = 0
+    while True:           # boucle CPU-bound, aucun await
+        compteur += 1
+
+async def autre_tache():
+    print("autre_tache: démarrage")
+    await asyncio.sleep(0.1)
+    print("autre_tache: terminée")
+
+async def main():
+    await asyncio.gather(
+        calcul_infini(),
+        autre_tache(),
+    )
+
+asyncio.run(main())
+```
+
+**Question 1 :** Que se passe-t-il à l'exécution ? Pourquoi `autre_tache`
+ne s'exécute-t-elle jamais ?
+
+**Question 2 :** Modifiez `calcul_infini` pour qu'elle cède périodiquement
+le contrôle.
+
+:::tip
+`asyncio.sleep(0)` suspend la coroutine courante et laisse l'event loop
+traiter d'autres tâches en attente, sans délai mesurable.
+:::
+
+## Partie 2 — Comparer avec `threading`
+
+Réécrivez le même scénario avec `threading.Thread` :
+
+```python
+import threading
+
+def calcul_infini():
+    print("calcul_infini: démarrage")
+    compteur = 0
+    while True:
+        compteur += 1
+
+def autre_tache():
+    print("autre_tache: démarrage")
+    import time; time.sleep(0.1)
+    print("autre_tache: terminée")
+
+t1 = threading.Thread(target=calcul_infini, daemon=True)
+t2 = threading.Thread(target=autre_tache)
+t1.start()
+t2.start()
+t2.join()
+```
+
+**Question 3 :** Contrairement à la version asyncio, `autre_tache` se
+termine ici. Expliquez pourquoi : qu'est-ce qui garantit que `autre_tache`
+obtient du temps processeur malgré la boucle infinie dans `calcul_infini` ?
+
+## Partie 3 — Implications pour le design de langage
+
+**Question 4 :** Remplissez le tableau suivant.
+
+| Propriété | asyncio (coopératif) | threading (préemptif) |
+|---|---|---|
+| Qui décide quand changer de tâche ? | | |
+| Risque de famine si une tâche ne coopère pas | | |
+| Risque de condition de course sur variables partagées | | |
+
+**Question 5 :** En Go, les goroutines utilisent un scheduler *hybride* qui
+peut préempter une goroutine bloquée dans une boucle sans `await`. Quel
+problème ce design résout-il par rapport à asyncio ?

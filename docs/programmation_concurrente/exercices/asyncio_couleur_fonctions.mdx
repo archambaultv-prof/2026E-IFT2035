@@ -1,0 +1,69 @@
+---
+sidebar_position: 5
+sidebar_label: "Ex. 5 — La couleur des fonctions"
+description: Explorer comment async/await crée deux univers de fonctions incompatibles et les implications pour le design de langage.
+---
+
+# Exercice 5 — La couleur des fonctions
+
+## Mise en contexte
+
+Bob Nystrom a popularisé l'expression *« What color is your function? »* pour
+décrire un problème structurel introduit par `async/await` : le mot-clé
+`async` crée **deux univers de fonctions incompatibles**.
+
+- Une fonction **asynchrone** (`async def`) ne peut être `await`ée que depuis
+  une autre fonction asynchrone.
+- Une fonction **synchrone** ne peut pas appeler `await`.
+
+Cette incompatibilité se *propage* : dès qu'une fonction au bas de la pile
+d'appels devient async, toutes ses appelantes doivent le devenir aussi.
+
+## Partie 1 — Observer la propagation
+
+Partez du code suivant, où `lire_donnee` est une fonction synchrone ordinaire.
+
+```python
+import time
+
+def lire_donnee(url: str) -> str:
+    time.sleep(0.1)   # simule un appel réseau
+    return f"données de {url}"
+
+def traiter(url: str) -> str:
+    donnee = lire_donnee(url)
+    return donnee.upper()
+
+def pipeline(urls: list[str]) -> list[str]:
+    return [traiter(u) for u in urls]
+
+if __name__ == "__main__":
+    resultats = pipeline(["https://example.com"])
+    print(resultats[0])
+```
+
+**Étape 1 :** Transformez `lire_donnee` en coroutine asynchrone en utilisant `asyncio.sleep`.
+
+```python
+import asyncio
+
+async def lire_donnee(url: str) -> str:
+    await asyncio.sleep(0.1)   # simule un appel réseau
+    return f"données de {url}"
+```
+
+**Étape 2 :** Sans modifier `traiter` ni `pipeline`, essayez d'appeler
+`lire_donnee` depuis `traiter`. Que se passe-t-il ?
+
+**Étape 3 :** Propagez `async/await` jusqu'au sommet de la pile. Comptez
+combien de fonctions ont dû être modifiées.
+
+**Question :** Est-il possible d'appeler `await lire_donnee(url)` depuis
+une fonction synchrone ordinaire ? Expliquez pourquoi.
+
+:::tip
+
+La fonction `asyncio.run()` pourrait vous aider à exécuter une coroutine depuis
+un contexte synchrone, mais cela comporte des limitations. Lesquelles ?
+
+:::

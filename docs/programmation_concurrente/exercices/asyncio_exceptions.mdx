@@ -1,0 +1,71 @@
+---
+sidebar_position: 6
+sidebar_label: "Ex. 6 — Exceptions et tâches concurrentes"
+description: Explorer la sémantique de propagation des exceptions lorsque plusieurs tâches asyncio s'exécutent en parallèle.
+---
+
+# Exercice 6 — Propagation des exceptions dans les tâches concurrentes
+
+## Mise en contexte
+
+Lorsqu'un seul fil d'exécution lève une exception, la sémantique est claire :
+l'exception remonte la pile d'appels jusqu'à un gestionnaire ou termine le
+programme. En présence de **concurrence**, cette sémantique doit être
+*choisie explicitement* par le concepteur du langage ou de la bibliothèque :
+
+- Que se passe-t-il avec les autres tâches en cours ?
+- L'exception est-elle re-levée immédiatement ou attendue ?
+- Peut-on récupérer les résultats partiels ?
+
+Python offre plusieurs primitives avec des comportements différents.
+
+## Partie 1 — Comportement par défaut de `asyncio.gather`
+
+```python
+import asyncio
+
+async def tache_ok(nom: str) -> str:
+    await asyncio.sleep(0.1)
+    print(f"{nom}: terminée normalement")
+    return f"résultat de {nom}"
+
+async def tache_erreur(nom: str) -> str:
+    await asyncio.sleep(0.05)
+    raise ValueError(f"{nom}: quelque chose a mal tourné")
+
+async def main():
+    résultats = await asyncio.gather(
+        tache_ok("A"),
+        tache_erreur("B"),
+        tache_ok("C"),
+    )
+    print(résultats)
+
+asyncio.run(main())
+```
+
+**Question 1 :** Exécutez ce code. Quelles tâches s'exécutent jusqu'au
+bout ? L'exception de `tache_erreur` est-elle propagée immédiatement ou
+après la fin de toutes les tâches ? Les tâches `A` et `C` sont-elles annulées
+lorsque `B` lève une exception ?
+
+## Partie 2 — `return_exceptions=True`
+
+Modifiez l'appel à `gather` pour utiliser `return_exceptions=True` :
+
+```python
+résultats = await asyncio.gather(
+    tache_ok("A"),
+    tache_erreur("B"),
+    tache_ok("C"),
+    return_exceptions=True,
+)
+for r in résultats:
+    if isinstance(r, Exception):
+        print(f"Erreur capturée : {r}")
+    else:
+        print(f"Succès : {r}")
+```
+
+**Question 2 :** Quelle différence observez-vous ? Dans quel cas
+préféreriez-vous ce comportement à celui par défaut ?

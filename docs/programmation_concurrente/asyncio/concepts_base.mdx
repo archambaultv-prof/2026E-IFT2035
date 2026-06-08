@@ -25,8 +25,7 @@ Contrairement au multithreading classique :
 - Moins de contention et pas besoin (la plupart du temps) de verrous (`Lock`)
 - Très efficace quand beaucoup d'attente (latence réseau) par rapport au temps CPU
 
-Pour du **CPU intensif**, `asyncio` n'apporte pas de parallélisme réel (GIL).
-On verra plus loin comment contourner.
+Pour du **CPU intensif**, `asyncio` n'apporte pas de parallélisme réel.
 
 ## Terminologie essentielle
 

@@ -1,0 +1,29 @@
+---
+sidebar_position: 2
+sidebar_label: "Ex. 2 — Interblocage"
+description: Provoquer et résoudre un interblocage causé par une inversion de l'ordre d'acquisition des verrous.
+---
+
+# Exercice 2 — Interblocage par inversion d'ordre des verrous
+
+## Mise en contexte
+
+Un **interblocage** (*deadlock*) est une violation de *liveness* : aucun thread
+ne progresse plus, mais le programme ne produit aucune erreur visible. Il est
+souvent plus difficile à diagnostiquer qu'une condition de course.
+
+La cause la plus fréquente est l'**inversion d'ordre d'acquisition** de
+plusieurs verrous : deux threads ont besoin des mêmes deux verrous et les
+acquièrent dans l'ordre inverse.
+
+## Partie 1 — Provoquer l'interblocage
+
+Écrire un code Python qui crée deux threads qui s'interbloquent mutuellement en
+acquérant deux verrous dans un ordre différent.
+
+## Partie 2 — Corriger par un ordre canonique
+
+La solution classique : imposer un **ordre total** sur tous les verrous et
+toujours les acquérir dans cet ordre.
+
+Implémentez cette solution pour corriger votre code de la Partie 1.

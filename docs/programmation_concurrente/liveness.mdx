@@ -1,0 +1,105 @@
+---
+sidebar_label: Sûreté et Vivacité
+sidebar_position: 3
+description: Propriétés de correction des programmes concurrents — sûreté (safety) et vivacité (liveness)
+---
+
+# Sûreté et Vivacité
+
+## Deux familles de propriétés
+
+Pour raisonner formellement sur la correction d'un programme concurrent, on
+distingue deux grandes familles de propriétés :
+
+| Famille | Définition informelle | Question posée |
+|---|---|---|
+| **Sûreté** (*safety*) | « Quelque chose de mauvais n'arrive jamais » | Est-ce que le programme produit des résultats incorrects ? |
+| **Vivacité** (*liveness*) | « Quelque chose de bon finit par arriver » | Est-ce que le programme progresse et termine ? |
+
+Ces deux familles sont **orthogonales** : un programme peut violer l'une sans
+violer l'autre, violer les deux, ou satisfaire les deux.
+
+## Propriétés de sûreté (*safety*)
+
+Une propriété de sûreté est violée à un *instant précis*.
+
+### Exemples
+
+| Propriété | Définition |
+|---|---|
+| **Absence de condition de course** | Deux agents concurrents n'accèdent jamais simultanément à la même ressource partagée avec au moins une écriture |
+| **Invariant de données** | Une structure partagée reste dans un état cohérent à tout moment |
+| **Absence d'accès invalide** | Un agent ne lit ou n'écrit jamais une zone mémoire qui ne lui appartient pas |
+
+Les mécanismes de synchronisation (verrous, transactions, canaux) visent
+principalement à établir des propriétés de **sûreté**.
+
+## Propriétés de vivacité (*liveness*)
+
+On ne peut pas « attraper » une violation de vivacité à un instant $t$ précis.
+Il faut observer l'exécution du programme sur une très longue période pour
+conclure qu'une propriété de vivacité est violée.
+
+### Exemples
+
+| Propriété | Définition |
+|---|---|
+| **Terminaison** | Le programme finit par se terminer |
+| **Absence d'interblocage** (*deadlock freedom*) | Il n'existe pas d'état où tous les agents sont bloqués en attente les uns des autres |
+| **Absence de famine** (*starvation freedom*) | Tout agent qui veut progresser finit par obtenir les ressources dont il a besoin |
+| **Équité** (*fairness*) | Tout agent en attente finit par être sélectionné par le scheduler |
+
+### L'interblocage (*deadlock*)
+
+Un **interblocage** survient lorsqu'un ensemble d'agents concurrents se bloquent
+mutuellement, chacun attendant une ressource détenue par un autre.
+
+Les quatre conditions nécessaires (conditions de Coffman) sont :
+1. **Exclusion mutuelle** : Les ressources ne peuvent pas être partagées
+2. **Détention et attente** : Un agent détient au moins une ressource et en attend d'autres
+3. **Non-préemption** : Une ressource ne peut pas être retirée de force à un agent
+4. **Attente circulaire** : Il existe un cycle dans le graphe d'attente
+
+```
+Agent 1                   Agent 2
+───────────────────────   ───────────────────────
+acquérir(verrou_A)        acquérir(verrou_B)
+  acquérir(verrou_B) ←→     acquérir(verrou_A)
+  ↑ bloqué                  ↑ bloqué
+```
+
+Les deux agents sont bloqués indéfiniment : ni l'un ni l'autre ne peut
+progresser pour libérer la ressource que l'autre attend.
+
+#### Prévention
+
+La solution classique est d'imposer un **ordre total sur les ressources** et de
+toujours les acquérir dans cet ordre. Cette convention est **externe** au
+langage : rien ne l'impose, c'est une discipline de programmation. C'est l'une
+des motivations de la mémoire transactionnelle (voir [STM en
+Haskell](./threading/stm.mdx)), qui rend la composabilité atomique
+*structurelle* plutôt que conventionnelle.
+
+### La famine (*starvation*)
+
+La **famine** est une violation de vivacité plus subtile que l'interblocage :
+le programme *progresse globalement*, mais certains agents n'obtiennent jamais
+leur tour.
+
+```
+Agent A : acquiert → relâche → acquiert → relâche → ...  (indéfiniment)
+Agent B : attend ..... attend ..... attend .....          (jamais sélectionné)
+```
+
+La famine peut survenir sans aucun bug fonctionnel — elle dépend du
+**scheduler** et de la politique d'ordonnancement des ressources partagées. Un
+verrou simple ne garantit généralement aucune équité d'ordonnancement.
+
+#### Solutions courantes
+
+- **File FIFO explicite** : les agents s'inscrivent dans une file d'attente
+  ordonnée plutôt que de se battre pour une ressource.
+- **Structures lock-free / wait-free** : algorithmes garantissant qu'un agent
+  progresse en un nombre borné d'étapes, indépendamment des autres.
+- **Scheduler équitable** : certains langages (Erlang, Go) garantissent une
+  distribution équitable du temps CPU au niveau du runtime.

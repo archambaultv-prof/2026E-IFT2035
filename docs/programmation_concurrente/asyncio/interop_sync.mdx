@@ -1,56 +1,244 @@
 ---
-sidebar_label: Intégrer sync et async
+sidebar_label: Programmer avec asyncio
 sidebar_position: 3
-description: Utiliser asyncio avec du code synchrone existant et inversement
+description: Comment structurer un programme asyncio — coroutines, tâches, gather, et code bloquant
 ---
 
-# Mélanger code synchrone et asynchrone
+# Programmer avec asyncio
 
-Dans un projet réel on doit souvent :
-- Appeler du code async depuis du code classique
-- Exécuter du code bloquant (lib, CPU) sans bloquer la loop
+## Le problème de départ : attendre sans rien faire
 
-## Entrée principale : `asyncio.run()`
+Imaginez un programme qui doit télécharger 10 pages web. En code synchrone
+classique, les requêtes s'exécutent **l'une après l'autre** : on attend la
+réponse de la première, puis la deuxième, etc. Pourtant, pendant qu'on attend
+la réponse du serveur, le processeur ne fait rien — il serait parfaitement
+capable de lancer la deuxième requête en attendant la première.
 
-Toujours utilisé **une seule fois** au point d'entrée du programme.
+C'est exactement ce que résout `asyncio` : permettre à une seule "ligne
+d'exécution" de gérer de nombreuses opérations d'attente en parallèle, sans
+avoir besoin de plusieurs threads.
+
+La clé est que la concurrence est **explicite** : une coroutine doit
+explicitement dire "je vais attendre, tu peux faire autre chose" en utilisant
+`await`. Sans `await`, une coroutine s'exécute sans interruption.
+
+## La brique de base : `async def` et `await`
+
+Une **coroutine** est une fonction définie avec `async def`. Elle peut se
+suspendre avec `await` pour laisser la main à d'autres coroutines :
 
 ```python
-# main.py
 import asyncio
 
-async def logique():
+async def saluer(nom, delai):
+    print(f"Début : {nom}")
+    await asyncio.sleep(delai)   # suspension : la loop peut exécuter autre chose
+    print(f"Fin : {nom}")
+
+async def main():
+    await saluer("Alice", 1)
+    await saluer("Bob", 1)
+
+asyncio.run(main())
+```
+
+Ici, `saluer("Alice", 1)` et `saluer("Bob", 1)` s'exécutent **l'une après
+l'autre** — la sortie sera : Début Alice, Fin Alice, Début Bob, Fin Bob — et le
+programme prend 2 secondes au total. Même si `await asyncio.sleep` suspend la
+coroutine, personne d'autre n'en profite car on a `await`é directement.
+
+Pour que les deux s'exécutent **en même temps**, il faut créer des tâches.
+
+## Exécuter plusieurs coroutines en parallèle
+
+### `asyncio.gather` — la façon la plus simple
+
+`asyncio.gather` prend plusieurs coroutines et les exécute de façon
+concurrente. Il attend que toutes soient terminées et retourne leurs résultats
+dans l'ordre :
+
+```python
+import asyncio
+import time
+
+async def saluer(nom, delai):
+    print(f"[{time.strftime('%X')}] Début : {nom}")
+    await asyncio.sleep(delai)
+    print(f"[{time.strftime('%X')}] Fin : {nom}")
+    return nom
+
+async def main():
+    resultats = await asyncio.gather(
+        saluer("Alice", 1),
+        saluer("Bob",   1),
+    )
+    print("Terminé :", resultats)
+
+asyncio.run(main())
+```
+
+Cette fois, le programme prend environ 1 seconde (les deux `sleep` se
+chevauchent) et affiche `Début Alice`, `Début Bob`, puis `Fin Alice`, `Fin Bob`.
+`gather` retourne `["Alice", "Bob"]` — dans l'ordre de soumission, pas de fin.
+
+### `asyncio.create_task` — lancer sans attendre
+
+`create_task` enregistre une coroutine auprès de la loop et la démarre
+**immédiatement**, sans bloquer la coroutine appelante. Cela permet de lancer
+une tâche en arrière-plan et de continuer à faire autre chose :
+
+```python
+async def main():
+    t1 = asyncio.create_task(saluer("Alice", 1))
+    t2 = asyncio.create_task(saluer("Bob",   2))
+
+    print("Les deux tâches sont lancées, je continue...")
+    await asyncio.sleep(0.1)
+    print("Je fais autre chose pendant que les tâches tournent")
+
+    await t1   # attendre que t1 soit terminée
+    await t2   # attendre que t2 soit terminée
+```
+
+`create_task` est utile quand on veut lancer des tâches à des moments
+différents ou gérer leurs résultats séparément. `gather` est plus simple quand
+on démarre tout en même temps et qu'on veut juste attendre la fin de tout.
+
+## La règle d'or : ne jamais bloquer la loop
+
+Toute la concurrence d'`asyncio` repose sur le fait que les coroutines rendent
+la main volontairement avec `await`. Si une coroutine exécute une opération
+**bloquante** (un `time.sleep`, une lecture de fichier synchrone, un calcul
+CPU intensif), elle monopolise le seul thread et **toutes** les autres
+coroutines sont gelées pendant ce temps.
+
+```python
+import asyncio, time
+
+async def bloquant():
+    print("Début")
+    time.sleep(2)       # bloque TOUT asyncio pendant 2 secondes
+    print("Fin")
+
+async def victime():
+    await asyncio.sleep(0.1)
+    print("Je n'ai aucune chance de m'exécuter pendant le sleep bloquant")
+
+async def main():
+    await asyncio.gather(bloquant(), victime())
+
+asyncio.run(main())
+```
+
+### Solution : `asyncio.to_thread`
+
+Pour exécuter du code bloquant (librairie synchrone, calcul lourd, appel
+système) sans geler la loop, on le délègue à un thread séparé avec
+`asyncio.to_thread`. La loop reste disponible pendant que le thread travaille :
+
+```python
+import asyncio, time
+
+def operation_bloquante(nom):
+    """Fonction synchrone ordinaire — ne peut pas utiliser await"""
+    print(f"{nom} : début")
+    time.sleep(2)       # bloquant, mais dans un thread séparé
+    print(f"{nom} : fin")
+    return f"résultat de {nom}"
+
+async def main():
+    # Les deux opérations bloquantes tournent dans des threads séparés
+    # pendant que la loop asyncio reste disponible
+    r1, r2 = await asyncio.gather(
+        asyncio.to_thread(operation_bloquante, "Tâche A"),
+        asyncio.to_thread(operation_bloquante, "Tâche B"),
+    )
+    print(r1, r2)
+
+asyncio.run(main())
+```
+
+## Point d'entrée : `asyncio.run()`
+
+`asyncio.run()` est la seule façon recommandée de démarrer un programme
+asyncio. Elle crée une nouvelle event loop, exécute la coroutine passée en
+argument jusqu'à sa fin, puis ferme la loop proprement.
+
+```python
+async def main():
+    await asyncio.sleep(1)
     return 42
 
+# Point d'entrée du programme
 if __name__ == "__main__":
-    resultat = asyncio.run(logique())
-    print(resultat)
+    resultat = asyncio.run(main())
+    print(resultat)   # 42
 ```
 
-Éviter d'appeler `asyncio.run()` depuis une coroutine déjà en cours (erreur).
+**À ne pas faire :** appeler `asyncio.run()` depuis une coroutine déjà en
+cours d'exécution — cela lève une `RuntimeError`. Il ne peut y avoir qu'une
+seule event loop active par thread.
 
-## Appeler async depuis sync (hors main)
+Si vous avez du code synchrone qui doit appeler une coroutine ponctuellement
+(hors du point d'entrée), `asyncio.run()` fonctionne uniquement si aucune loop
+n'est déjà active. Dans un serveur web asynchrone (FastAPI, aiohttp), une
+loop est déjà en cours : dans ce cas il faut propager `async/await` jusqu'au
+point d'entrée, car il n'est pas possible d'appeler `asyncio.run()` de
+l'intérieur.
 
-Lorsqu'on décide d'utiliser `asyncio`, il est préférable de propager
-l'asynchronicité jusqu'au sommet de la pile d'appels. Il est en 
-effet compliqué et source d'erreurs de vouloir encapsuler de l'async dans
-du sync. Cela est possible avec `asyncio.run()` si aucune loop n'est active.
+:::tip[Règle pratique]
+Si vous introduisez `asyncio` dans un projet, propagez `async/await` jusqu'au
+sommet de la pile d'appels. Essayer d'encapsuler de l'async dans du sync au
+milieu d'un projet est source de complexité et d'erreurs.
+:::
+
+## Gestion des erreurs dans gather
+
+Par défaut, si une coroutine lève une exception dans `gather`, l'exception est
+propagée et les autres coroutines sont annulées :
 
 ```python
-import asyncio
+async def ok():
+    await asyncio.sleep(0.1)
+    return "OK"
 
-async def tache_async(x):
-    await asyncio.sleep(1)
-    return x * 2
+async def echec():
+    await asyncio.sleep(0.05)
+    raise ValueError("quelque chose a mal tourné")
 
-def version_sync(*args, **kwargs):
-    return asyncio.run(tache_async(*args, **kwargs))  # bloque jusqu’au résultat
+async def main():
+    try:
+        resultats = await asyncio.gather(ok(), echec(), ok())
+    except ValueError as e:
+        print(f"Erreur : {e}")   # les autres coroutines sont annulées
 
-# usage
-res = version_sync(42)
-print(res)
+asyncio.run(main())
 ```
 
-Si jamais une loop est active (ex: dans un serveur web async), `asyncio.run()`
-lève une `RuntimeError`. Dans ce cas, il faut repenser l'architecture pour
-propager l'asynchronicité, ou utiliser un autre thread pour faire l'appel
-avec `asyncio.run()` sur ce thread.
+Pour récupérer tous les résultats (succès **et** erreurs) sans propagation,
+utilisez `return_exceptions=True`. Les exceptions deviennent alors des valeurs
+dans la liste retournée :
+
+```python
+async def main():
+    resultats = await asyncio.gather(ok(), echec(), ok(), return_exceptions=True)
+    for r in resultats:
+        if isinstance(r, Exception):
+            print(f"Erreur : {r}")
+        else:
+            print(f"Succès : {r}")
+```
+
+## Résumé du modèle de programmation
+
+| Besoin | Outil |
+|--------|-------|
+| Définir une coroutine | `async def` |
+| Attendre une opération async | `await` |
+| Lancer le programme | `asyncio.run(main())` |
+| Exécuter plusieurs coroutines en parallèle | `asyncio.gather(...)` |
+| Lancer une tâche sans attendre tout de suite | `asyncio.create_task(...)` |
+| Exécuter du code bloquant sans geler la loop | `asyncio.to_thread(...)` |
+
+La prochaine section explique comment la loop gère concrètement la
+planification et l'exécution de tout cela : [l'event loop](event_loop.mdx).

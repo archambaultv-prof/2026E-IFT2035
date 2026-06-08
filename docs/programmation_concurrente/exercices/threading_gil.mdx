@@ -1,0 +1,32 @@
+---
+sidebar_position: 1
+sidebar_label: "Ex. 1 — Le GIL ne protège pas tout"
+description: Montrer que le GIL de CPython ne rend pas les opérations composées atomiques.
+---
+
+# Exercice 1 — Le GIL ne protège pas tout
+
+## Mise en contexte
+
+Python (CPython) possède un **Global Interpreter Lock** (GIL) : un verrou
+global qui garantit qu'un seul thread exécute du bytecode Python à la fois.
+On pourrait croire que cela rend tout code Python « thread-safe ». Ce n'est
+pas le cas.
+
+Le GIL protège *un bytecode à la fois*. Mais une expression comme
+`counter += 1` compile en *plusieurs* bytecodes. Le scheduler peut changer de
+thread entre deux bytecodes — et c'est là que les problèmes surviennent.
+
+## Partie 1 — Condition de course sur un compteur
+
+Écrire un code Python qui crée plusieurs threads qui incrémentent un compteur
+partagé sans utiliser de verrou. Exécutez-le plusieurs fois et observez que le
+résultat final est souvent inférieur au nombre total d'incrémentations, ce qui
+indique une condition de course.
+
+## Partie 2 — Opérations réellement atomiques
+
+Certaines opérations Python *sont* atomiques grâce au GIL. 
+- Quelles sont les opérations sur une liste Python qui sont atomiques ? Par exemple, `append` est-il atomique ?
+- Quelles sont les opérations sur un dictionnaire Python qui sont atomiques ? Par exemple, `dict[key] = value` est-il atomique ?
+- Quelles sont les opérations sur un entier Python qui sont atomiques ? Par exemple, `counter += 1` est-il atomique ? Et `counter = counter + 1` ?

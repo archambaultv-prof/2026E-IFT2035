@@ -1,0 +1,38 @@
+---
+sidebar_position: 3
+sidebar_label: "Ex. 3 — Conditions de course"
+description: Reproduire une condition de course avec asyncio.
+---
+
+# Exercice 3 — Conditions de course avec asyncio
+
+Cet exercice vise à montrer que même avec `asyncio`, il est possible d'avoir
+des conditions de course si on manipule des variables partagées sans
+précaution.
+
+Vous devez écrire un programme qui exécute plusieurs coroutines qui incrémente
+une variable partagée. Concevoir le code de façon à produire une erreur dans la
+valeur finale. Voici un point de départ, mais ce code ne produit pas d'erreur.
+
+```python
+import asyncio
+
+compteur = 0
+
+async def incrementer():
+    global compteur
+    valeur = compteur
+    valeur += 1
+    compteur = valeur
+
+async def main():
+    global compteur
+    await asyncio.gather(
+        incrementer(),
+        incrementer()
+    )
+    print(compteur)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
