@@ -1,0 +1,86 @@
+---
+sidebar_position: 2
+sidebar_label: "Ex. 1 — Expansion de macros C"
+description: Tracer manuellement les expansions de macros C et identifier les bugs classiques.
+---
+
+# Exercice 1 — Expansion de macros C
+
+Dans cet exercice, les macros C suivantes sont données :
+
+```c
+#define DOUBLE(x)     x + x
+#define CARRE(x)      x * x
+#define ABS(x)        x < 0 ? -x : x
+#define SWAP(x, y)    { int t = y; y = x; x = t; }
+#define MAX(x, y)     x > y ? x : y
+```
+
+## Partie A — Expansion manuelle
+
+Pour chacun des appels suivants, **écrire le code exact** produit par le
+préprocesseur (substitution textuelle) puis **indiquer si le résultat est
+correct ou non**.
+
+1. ```c
+   int a = DOUBLE(3);
+   ```
+
+2. ```c
+   int b = DOUBLE(3) * 2;
+   ```
+
+3. ```c
+   int c = CARRE(1 + 2);
+   ```
+
+4. ```c
+   int d = ABS(a - 5);
+   ```
+
+5. ```c
+   int e = ABS(a - 5) * 2;
+   ```
+
+6. (en supposant que `foo()` et `bar()` ont des effets de bord)
+   ```c
+   int f = MAX(foo(), bar());
+   ```
+  
+
+7. ```c
+   int x = 1, y = 2, t = 99;
+   SWAP(x, y);
+   ```
+
+## Partie B — Identification et classification des erreurs
+
+Pour chacun des cas **incorrects** que vous avez identifiés en Partie A,
+indiquer à quelle catégorie d'erreur il appartient :
+
+- **Priorité d'opérateurs** — la substitution textuelle change le sens des
+  expressions à cause des précédences.
+- **Réévaluation excessive** — un argument est évalué plusieurs fois.
+- **Capture de nom** — un nom introduit par la macro entre en conflit avec un
+  nom du code appelant.
+
+## Partie C — Corrections
+
+1. Réécrire les macros `DOUBLE`, `CARRE`, `ABS` et `MAX` de façon à éviter les
+   erreurs de priorité d'opérateurs. Parenthéser correctement chaque paramètre
+   et le corps entier.
+
+2. La macro `SWAP` souffre d'une capture de nom. Proposer une convention de
+   nommage qui réduit ce risque.
+
+3. La macro `MAX` est problématique si ses arguments ont des effets de bord.
+   Pourquoi ne peut-on pas résoudre ce problème avec de simples parenthèses ?
+
+4. La macro `SWAP` souffre aussi d'un problème de catégorie syntaxique quand
+   elle est utilisée dans un `if/else` sans accolades. Montrer un exemple du
+   problème et proposer la correction classique.
+
+:::tip[Rappel]
+Pour voir exactement ce que le préprocesseur produit, on peut utiliser
+`gcc -E fichier.c`.
+:::

@@ -1,12 +1,193 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
+sidebar_label: Introduction
+description: Du code répété à la métaprogrammation — pourquoi et comment étendre un langage de l'intérieur.
 ---
 
 # Méta-programmation
 
-:::warning
+## Le problème du code répété
 
-Section en construction. Les contenus seront ajoutés au fur et à mesure de l'avancement du cours.
+Considérez ces deux fragments de code C :
 
+```c
+int somme_positifs(int t[], int n) {
+  int s = 0;
+  for (int i = 0; i < n; i++) {
+    if (t[i] > 0) {
+      s += t[i];
+    }
+  }
+  return s;
+}
+
+int compte_pairs(int t[], int n) {
+  int c = 0;
+  for (int i = 0; i < n; i++) {
+    if (t[i] % 2 == 0) {
+      c += 1;
+    }
+  }
+  return c;
+}
+```
+
+Le même squelette revient partout: une boucle `for` sur un tableau, puis un
+test, puis une action. Le traitement réel est
+noyé dans du code passe-partout.
+
+### L'abstraction idéale
+
+Ce qu'on aimerait écrire :
+
+```c
+foreach x in t {
+  /* traitement de x */
+}
+```
+
+C'est concis, ça cache les détails de la boucle, et ça ressemble à ce qu'on
+ferait en pseudo-code. Mais cette syntaxe n'existe pas en C.
+
+## Les trois réponses possibles
+
+Face à ce problème, il y a trois familles de solutions.
+
+### Fonctions d'ordre supérieur
+
+On peut factoriser une partie du motif avec une fonction, mais la syntaxe reste
+moins naturelle que le pseudo-code `foreach`.
+
+```c
+for_each_array(t, n, traiter);
+```
+
+Par exemple, on peut définir cette fonction utilitaire en C de la façon
+suivante :
+
+```c
+void for_each_array(int t[], int n, void (*f)(int)) {
+  for (int i = 0; i < n; i++) {
+    f(t[i]);
+  }
+}
+```
+
+Et l'utiliser comme ceci :
+
+```c
+void afficher_int(int x) { printf("%d\n", x); }
+
+int t[] = {3, -1, 8, 5};
+for_each_array(t, 4, afficher_int);
+```
+
+Ça marche, mais on garde des contraintes de style C (fonction auxiliaire,
+paramètres techniques, ordre des arguments) qui rendent le code moins lisible
+que l'abstraction visée.
+
+### Étendre le langage
+
+On pourrait ajouter `foreach` au langage C lui-même. Mais modifier un
+compilateur est extrêmement coûteux, et généralement impossible pour un
+utilisateur du langage.
+
+### Métaprogrammation
+
+La **métaprogrammation** permet d'introduire localement de nouvelles syntaxes,
+sans modifier le compilateur. Elle repose sur des **macros** — des fonctions
+qui transforment du code.
+
+Avec les macros C, on peut écrire :
+
+```c
+ARRAY_FOREACH(x, t, n) {
+  /* traitement de x */
+}
+```
+
+Par exemple, une définition possible de cette macro est :
+
+```c
+#include <stddef.h>
+
+#define ARRAY_FOREACH(x, t, n)                                      \
+  for (size_t _i = 0, _n = (n); _i < _n; ++_i)                     \
+    for (int _once = 1, x = (t)[_i]; _once; _once = 0)
+```
+
+Pourquoi deux `for` ?
+
+- Le premier `for` parcourt réellement le tableau (`_i` va de `0` à `n-1`).
+- Le second `for` sert à créer une portée locale où `x` est défini comme
+  l'élément courant `(t)[_i]`, puis à exécuter le bloc utilisateur exactement
+  une seule fois (`_once` passe de `1` à `0`).
+
+Autrement dit :
+
+- `for` externe = itération sur le tableau,
+- `for` interne = liaison de `x` pour le bloc.
+
+Exemple d'expansion (idée) :
+
+```c
+ARRAY_FOREACH(x, t, n) {
+  printf("%d\n", x);
+}
+```
+
+devient essentiellement :
+
+```c
+for (size_t _i = 0, _n = (n); _i < _n; ++_i)
+  for (int _once = 1, x = (t)[_i]; _once; _once = 0) {
+    printf("%d\n", x);
+  }
+```
+
+Ce n'est pas parfait, mais c'est beaucoup plus lisible que la version avec
+la boucle répétée partout.
+
+## Qu'est-ce qu'une macro ?
+
+:::info[Définition]
+Une **macro** est une fonction qui prend des **fragments de code** comme
+arguments et renvoie un **nouveau fragment de code**.
+
+Les macros sont exécutées **lors de la compilation** (phase d'expansion),
+avant que le programme soit exécuté.
 :::
 
+Ce qui distingue une macro d'une fonction ordinaire :
+
+| | Fonction | Macro |
+|---|---|---|
+| Arguments | Des **valeurs** évaluées | Des **fragments de code** non évalués |
+| Exécution | À l'**exécution** | À la **compilation** |
+| Résultat | Une valeur | Du **code** qui sera ensuite compilé |
+
+### Objectifs typiques
+
+- Introduire une syntaxe plus concise ou plus lisible
+- Créer de nouvelles structures de contrôle
+- Factoriser des motifs de code répétitifs
+- Forcer une expansion *inline* et éviter le coût d'un appel de fonction
+
+## Expansion vs exécution
+
+L'expansion des macros a lieu **avant** l'exécution. Cette séparation temporelle
+a des conséquences importantes :
+
+- L'expansion **n'a pas accès** aux valeurs calculées à l'exécution (le futur)
+- L'exécution **n'a pas toujours accès** aux détails de l'expansion (le passé)
+- Une macro peut produire du code qui sera ou ne sera **jamais exécuté**
+
+```
+Code source
+    ↓  phase d'expansion (macros)
+Code étendu
+    ↓  compilation
+Code objet
+    ↓  exécution
+Résultat
+```

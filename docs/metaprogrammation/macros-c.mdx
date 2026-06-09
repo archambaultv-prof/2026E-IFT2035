@@ -1,0 +1,202 @@
+---
+sidebar_position: 2
+sidebar_label: Macros en C
+description: Le préprocesseur CPP — substitution textuelle, exemples classiques et limites.
+---
+
+# Macros en C : le préprocesseur
+
+## Le préprocesseur C
+
+Avant que le compilateur C analyse votre code, un programme séparé appelé
+**préprocesseur** (CPP) transforme le texte source. Ce préprocesseur effectue
+plusieurs opérations : inclusion de fichiers (`#include`), compilation
+conditionnelle (`#ifdef`/`#endif`), et surtout la **substitution de macros**
+(`#define`).
+
+:::info[Important]
+Les macros C opèrent sur le **texte brut**, avant toute analyse syntaxique.
+Le préprocesseur ne connaît ni les types, ni les expressions, ni la grammaire
+C. Il remplace mécaniquement du texte par du texte.
+:::
+
+## Syntaxe de `#define`
+
+Il existe deux formes :
+
+```c
+/* Macro-constante : substitution simple */
+#define NOM valeur
+
+/* Macro-fonction : substitution avec paramètres */
+#define NOM(param1, param2, ...) expression
+```
+
+**Attention :** il ne faut pas d'espace entre le nom et la parenthèse ouvrante
+dans une macro-fonction. `#define FOO (x)` est une macro-constante dont la
+valeur est `(x)`, pas une macro-fonction.
+
+## Exemples de base
+
+### Constantes symboliques
+
+```c
+#define PI 3.14159265
+#define MAX_SIZE 1024
+#define NEWLINE '\n'
+```
+
+Ces macros permettent de nommer des valeurs magiques. Partout où `PI` apparaît
+dans le code, le préprocesseur le remplace par `3.14159265` avant compilation.
+
+### Macros-fonctions simples
+
+```c
+#define CARRE(x)  ((x) * (x))
+#define MIN(x,y)  ((x) < (y) ? (x) : (y))
+#define MAX(x,y)  ((x) > (y) ? (x) : (y))
+```
+
+Appel et expansion :
+
+```c
+int a = CARRE(3);
+/* Expansion : int a = ((3) * (3)); */
+
+int m = MIN(longueur_chaine(s), MAX_SIZE);
+/* Expansion : int m = ((longueur_chaine(s)) < (1024)
+               ? (longueur_chaine(s)) : (1024)); */
+```
+
+## La macro `MIN` sans précautions
+
+La version non sécurisée que l'on rencontre souvent :
+
+```c
+#define MIN(x,y) (x<y)?x:y
+```
+
+Avec cette définition :
+
+```c
+int exp_min(exp *a, exp *b) {
+    return MIN(exp_size(a), exp_size(b));
+}
+```
+
+s'étend en :
+
+```c
+int exp_min(exp *a, exp *b) {
+    return (exp_size(a) < exp_size(b))
+           ? exp_size(a) : exp_size(b);
+}
+```
+
+Le résultat est fonctionnel ici, mais `exp_size` est appelé **deux fois** au
+lieu d'une. Si `exp_size` est coûteuse, c'est un problème de performance. Si
+elle a des effets de bord, c'est un bogue.
+
+Les problèmes spécifiques aux macros textuelles sont traités en détail dans la
+page [Erreurs d'expansion](erreurs-expansion).
+
+## Itération avec macros en C
+
+Les macros permettent d'abstraire des motifs d'itération impossibles à
+exprimer proprement avec des fonctions. Par exemple, pour parcourir un arbre
+avec un itérateur :
+
+```c
+/* Sans macro */
+if (tree) {
+  for (iter it = new_iterator(tree, beg, end);
+       not_finished(it);
+       go_to_next(it)) {
+    tree_node x = get_node(it);
+    /* traitement */
+  }
+}
+
+/* Avec macro */
+TREE_FOREACH(x, tree, beg, end) {
+  /* traitement */
+}
+```
+
+La macro `TREE_FOREACH` se définirait ainsi :
+
+```c
+#define TREE_FOREACH(var, tree, beg, end)                         \
+  if (tree)                                                        \
+    for (iter _it = new_iterator((tree), (beg), (end));           \
+         not_finished(_it);                                        \
+         go_to_next(_it))                                         \
+      for (tree_node var = get_node(_it); !_done; _done = 1)
+```
+
+Le résultat est beaucoup plus lisible au site d'appel. La macro masque les
+détails de l'itérateur — c'est exactement ce qu'on voulait.
+
+## Génération de code
+
+Une autre application puissante des macros est la **génération de code
+répétitif**. Par exemple, pour définir des fonctions de conversion pour chaque
+type d'un enumérateur :
+
+```c
+#define DECL_CONV(type_src, type_dst)                             \
+  type_dst convert_##type_src##_to_##type_dst(type_src v) {      \
+    return (type_dst) v;                                          \
+  }
+
+DECL_CONV(int, float)
+DECL_CONV(int, double)
+DECL_CONV(float, double)
+```
+
+L'opérateur `##` colle deux fragments de texte en un seul identifiant. Ici il
+produit les fonctions `convert_int_to_float`, `convert_int_to_double`, etc.
+
+## Le débogage des macros
+
+Comme les macros sont substituées avant la compilation, les messages d'erreur
+du compilateur peuvent être déroutants : ils mentionnent du code qui n'est pas
+visible dans votre fichier source.
+
+Avec GCC/Clang, l'option `-E` demande au compilateur de n'exécuter que le
+préprocesseur et d'afficher le résultat :
+
+```bash
+gcc -E mon_fichier.c
+```
+
+Cela montre exactement le code que le compilateur va analyser, après toutes
+les substitutions. C'est l'outil indispensable pour diagnostiquer les erreurs
+liées aux macros.
+
+## Avantages et limites
+
+| Avantage | Limite |
+|---|---|
+| Générique : fonctionne avec n'importe quel type | Pas de vérification de types |
+| Inline garanti : pas de coût d'appel | Erreurs difficiles à diagnostiquer |
+| Syntaxe flexible | Pas d'espace de nommage |
+| Puissant pour générer du code | Opère sur le texte, pas sur la structure |
+
+Les macros C sont puissantes mais dangereuses. Les pièges principaux sont
+décrits dans la page [Erreurs d'expansion](erreurs-expansion). La règle
+générale : **si une fonction inline peut faire le travail, utilisez-la**.
+
+```c
+/* Préférez ceci... */
+static inline int min_int(int x, int y) {
+    return x < y ? x : y;
+}
+
+/* ...à cela */
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
+```
+
+La version inline est plus sûre, typée, et les messages d'erreur du compilateur
+sont lisibles. La macro garde son intérêt quand la généricité (tout type) ou
+la syntaxe (blocs de code, création de liaisons) est indispensable.

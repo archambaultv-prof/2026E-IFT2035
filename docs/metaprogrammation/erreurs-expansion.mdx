@@ -1,0 +1,278 @@
+---
+sidebar_position: 4
+sidebar_label: Erreurs d'expansion
+description: Les pièges classiques des macros — catégorie syntaxique, réévaluation, capture de noms — et comment les éviter.
+---
+
+# Erreurs d'expansion
+
+## Vue d'ensemble
+
+Les macros sont puissantes, mais leur expansion peut produire du code incorrect
+de façons non évidentes. Les erreurs se produisent parce que la macro opère sur
+du code **non évalué** et produit du code qui sera inséré dans un contexte
+syntaxique et sémantique qu'elle ne contrôle pas complètement.
+
+On distingue trois grandes familles d'erreurs :
+
+1. **Erreurs de catégorie syntaxique** — le texte substitué n'a pas la forme
+   attendue dans son contexte (surtout en C)
+2. **Réévaluation excessive** — un argument est évalué plusieurs fois
+3. **Capture de nom** — un identificateur introduit par la macro entre en
+   conflit avec un nom du code appelant
+
+---
+
+## Erreurs de catégorie syntaxique (C)
+
+Les macros C manipulent du texte brut. Le résultat de la substitution peut
+avoir une catégorie syntaxique incorrecte, ce qui change complètement le sens
+du programme.
+
+### Problème 1 : priorité des opérateurs
+
+```c
+#define abs(x)  (x<0) ? -x : x
+```
+
+Appel :
+
+```c
+int y = abs(a+1) * 2;
+```
+
+Expansion :
+
+```c
+int y = (a+1<0) ? -a+1 : a+1 * 2;
+```
+
+Il y a deux problèmes :
+- `a+1` est parsé comme `a + (1<0)` à cause des priorités
+- `-a+1` est parsé comme `(-a) + 1` et non `-(a+1)`
+- `a+1 * 2` est parsé comme `a + (1*2)` au lieu de `(a+1) * 2`
+
+**Solution :** parenthéser chaque paramètre **et** l'expression entière.
+
+```c
+#define abs(x)  (((x) < 0) ? -(x) : (x))
+```
+
+Expansion correcte :
+
+```c
+int y = (((a+1) < 0) ? -(a+1) : (a+1)) * 2;
+```
+
+:::info[Règle mnémotechnique]
+En C, entourer **chaque paramètre** d'une paire de parenthèses dans le corps
+de la macro, et entourer le **corps entier** de parenthèses. C'est fastidieux,
+mais indispensable.
+:::
+
+### Problème 2 : le *dangling else*
+
+```c
+#define swap(x,y)  { int t = (y); (y) = (x); (x) = t; }
+```
+
+Appel :
+
+```c
+if (a < b)
+    swap(a, b);
+else
+    traiter();
+```
+
+Expansion :
+
+```c
+if (a < b)
+    { int t = (b); (b) = (a); (a) = t; };
+else          /* ERREUR : le ';' après } crée une instruction vide */
+    traiter();
+```
+
+En C, `if (cond) instruction ;` accepte `instruction` comme une seule
+instruction. La séquence `{ ... };` est une instruction composée suivie d'une
+instruction vide (`;`). Avec certains compilateurs, le `else` se retrouve alors
+orphelin ou attaché incorrectement.
+
+**Solution :** envelopper dans `do { ... } while (0)`.
+
+```c
+#define swap(x,y)  do { int t = (y); (y) = (x); (x) = t; } while (0)
+```
+
+Cette forme est syntaxiquement une unique instruction, et on peut lui ajouter
+un `;` sans problème :
+
+```c
+if (a < b)
+    swap(a, b);   /* s'étend en do { ... } while (0); */
+else
+    traiter();    /* else correctement attaché au if */
+```
+
+### Problème 3 : fragment syntaxique incomplet
+
+```c
+#define haha(x)  {x
+```
+
+La macro produit un fragment incomplet — une accolade ouvrante sans la
+fermante. Si l'utilisateur n'ajoute pas la fermeture manuellement, la
+compilation échoue avec un message d'erreur cryptique portant sur la ligne
+**après** le site d'appel.
+
+Ce genre de macro est un signe que l'on pousse les macros textuelles au-delà
+de leurs limites. En Lisp, où les macros opèrent sur l'ASA, ce type d'erreur
+est impossible : la liste de retour est toujours syntaxiquement complète.
+
+---
+
+## Réévaluation excessive
+
+### Le problème
+
+En Haskell, une fonction `f x y` évalue `x` et `y` **une seule fois** avant
+d'entrer dans `f`. Les macros n'ont pas cette garantie : elles substituent le
+code textuel (ou la structure de l'ASA) directement, ce qui signifie que
+chaque occurrence du paramètre dans le corps de la macro provoque une
+**nouvelle évaluation**.
+
+```c
+#define MIN(x,y)  ((x) < (y) ? (x) : (y))
+```
+
+Appel :
+
+```c
+int m = MIN(i++, j++);
+```
+
+Expansion :
+
+```c
+int m = ((i++) < (j++) ? (i++) : (j++));
+```
+
+`i` et `j` sont incrémentés **deux fois** si la condition est vraie, et une
+fois sinon. C'est un bogue silencieux.
+
+De même avec des appels de fonction coûteux ou à effets de bord :
+
+```c
+int m = MIN(calcul_lent(a), calcul_lent(b));
+/* calcul_lent est appelé 2 fois au lieu d'une ! */
+```
+
+### Exemple avec SWAP
+
+```c
+#define swap(x,y)  do { int t = (y); (y) = (x); (x) = t; } while (0)
+```
+
+Appel :
+
+```c
+swap(a, b[x++]);
+```
+
+Expansion :
+
+```c
+do {
+    int t = (b[x++]);    /* x est incrémenté ici... */
+    (b[x++]) = (a);      /* ...et encore ici ! */
+    (a) = t;
+} while (0);
+```
+
+`x` est incrémenté **deux fois** : `b[x]` et `b[x+1]` sont accédés, ce qui
+n'est clairement pas l'intention.
+
+### Solutions
+
+**En C :**
+
+1. Utiliser une fonction `inline` quand c'est possible :
+
+   ```c
+   static inline int min_int(int x, int y) {
+       return x < y ? x : y;
+   }
+   ```
+
+2. Si une macro est vraiment nécessaire, évaluer chaque argument dans une
+   variable temporaire (avec les extensions GCC `typeof` et `__auto_type`) :
+
+   ```c
+   #define MIN(x,y) ({                 \
+       __auto_type _x = (x);           \
+       __auto_type _y = (y);           \
+       _x < _y ? _x : _y; })
+   ```
+
+**En Lisp :** stocker les arguments dans des liaisons locales au début de la
+macro :
+
+```elisp
+(defmacro mon-min (x y)
+  (let ((vx (gensym)) (vy (gensym)))
+    `(let ((,vx ,x) (,vy ,y))
+       (if (< ,vx ,vy) ,vx ,vy))))
+```
+
+Chaque argument est évalué une seule fois, dans les liaisons `let`.
+
+---
+
+## Capture de nom
+
+### Le problème
+
+La **capture de nom** se produit quand un identificateur introduit par la macro
+(par exemple un temporaire ou un nom de boucle) coïncide avec un nom déjà
+présent au site d'appel, changeant accidentellement sa signification.
+
+#### Exemple en C
+
+```c
+#define swap(x,y)  { int t = (y); (y) = (x); (x) = t; }
+```
+
+Appel :
+
+```c
+void proc(int a, int b, int t, int t2) {
+    swap(a, b);    /* {int t = b;  b = a;  a = t; }  -- OK */
+    swap(t, t2);   /* {int t = t2; t2 = t; t = t; }  -- BOGUE ! */
+}
+```
+
+Dans `swap(t, t2)`, la macro introduit `int t = t2`, mais il y a déjà un `t`
+dans la portée. Le compilateur C crée un nouveau `t` local au bloc, qui
+**masque** le `t` passé en argument. La macro manipule le mauvais `t`.
+
+### Sémantique analogue à la portée dynamique
+
+Ce comportement ressemble à la **portée dynamique** (voir la page
+[Portée et fermetures](../programmation_fonctionnelle/portee-fermetures)).
+
+De même, la réévaluation des arguments ressemble à l'**appel par nom** (*call
+by name*) où chaque mention d'un argument ré-exécute l'expression correspondante.
+
+Ces deux comportements sont généralement indésirables et constituent les sources
+principales de bogues dans les macros.
+
+## Résumé
+
+| Erreur | Cause | Solution principale |
+|---|---|---|
+| Priorité d'opérateurs | Texte substitué sans parenthèses | Parenthéser chaque paramètre et le corps |
+| *Dangling else* | Macro-instruction non encapsulée | `do { ... } while (0)` |
+| Fragment syntaxique | Macro incomplète | Éviter ; utiliser un niveau plus haut |
+| Réévaluation | Paramètre substitué plusieurs fois | Stocker dans temporaires ; préférer `inline` |
+| Capture de nom | Nom interne de la macro visible au site d'appel | `gensym` ; voir page suivante |
